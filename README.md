@@ -21,6 +21,14 @@ Si te equivocaste, el aviso de abajo tiene **Deshacer** por unos segundos. Tambi
 
 Abre la URL en Safari → botón Compartir → **Agregar a pantalla de inicio**. Abre a pantalla completa y conserva los datos aunque cierres Safari.
 
+## Presupuesto diario y cuadre
+
+Los días se calculan en hora de Colombia, sin importar la zona horaria del teléfono. Arriba siempre ves **Hoy · jueves, 12 de nov**, lo gastado, el presupuesto del día y cuánto te queda (o cuánto te pasaste), con una barra.
+
+El botón **Cuadre** cierra el día: muestra gastado y saldo, deja editar el presupuesto de hoy, copia el gasto real para pegarlo en el Excel, y pide el **presupuesto de mañana**. A las 00:00 hora Colombia la app arranca con ese presupuesto. Si no pones uno, mañana aparece "Sin presupuesto para hoy".
+
+En "Últimos 7 días" cada día muestra gastado, presupuesto y saldo (verde si sobró, rojo si faltó).
+
 ## Detalle de un gasto
 
 Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí.

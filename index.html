@@ -101,6 +101,30 @@
   .btn.danger{color:var(--danger)}
   .hint{font-size:12px;color:var(--muted);margin:6px 2px 14px;line-height:1.4}
   button.glass{cursor:pointer}
+  .today .of{display:block;font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:-2px}
+  .today .of:empty{display:none}
+  .hbtns{display:flex;gap:8px;align-items:center}
+  .pill{color:var(--text);height:44px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:700}
+  .pill:active{transform:scale(.95)}
+  .budget{padding:12px 16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:600}
+  .budget .bar{height:8px;border-radius:999px;background:rgba(127,127,140,.25);overflow:hidden}
+  .budget .bar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--ok),#4f8cff);transition:width .4s}
+  .budget.over .bar i{background:linear-gradient(90deg,#ffb300,var(--danger))}
+  .budget.over span{color:var(--danger)}
+  .budget.nobudget .bar{display:none}
+  .budget.nobudget span{color:var(--muted);font-weight:500}
+  .day small{font-size:12px;color:var(--muted);font-weight:500}
+  .day b small{margin-left:6px}
+  .day small.pos{color:var(--ok)} .day small.neg{color:var(--danger)}
+  .cuadre label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
+  .amountbox.small{padding:10px 14px;margin-bottom:0}
+  .amountbox.small input{font-size:28px}
+  .amountbox.small .cur{font-size:20px}
+  .kv{display:flex;margin-top:10px}
+  .kv div{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+  .kv div+div{border-left:1px solid var(--edge)}
+  .kv span{font-size:12px;color:var(--muted)}
+  .kv b{font-size:20px;font-variant-numeric:tabular-nums}
   .row{cursor:pointer}
   .row:active{background:rgba(127,127,140,.12)}
 
@@ -122,10 +146,17 @@
 <header>
   <div>
     <h1 id="dateLabel">Hoy</h1>
-    <p class="today" id="todayTotal">$0</p>
+    <p class="today"><span id="todayTotal">$0</span> <span class="of" id="budgetOf"></span></p>
   </div>
-  <button class="iconbtn glass" id="openSettings" title="Ajustes">⚙︎</button>
+  <div class="hbtns">
+    <button class="pill glass" id="openCuadre">Cuadre</button>
+    <button class="iconbtn glass" id="openSettings" title="Ajustes">⚙︎</button>
+  </div>
 </header>
+<div class="budget glass nobudget" id="budgetBox">
+  <div class="bar"><i id="budgetBar"></i></div>
+  <span id="budgetLeft"></span>
+</div>
 
 <div class="amountbox glass">
   <span class="cur">$</span>
@@ -143,6 +174,24 @@
 <div class="list glass" id="weekList"></div>
 
 <div class="toast glass" id="toast"><span id="toastMsg"></span><button id="undoBtn" style="display:none">Deshacer</button></div>
+
+<div class="modal" id="cuadre">
+  <div class="sheet glass cuadre">
+    <h2 id="cTitle">Cuadre de hoy</h2>
+    <label>Presupuesto de hoy</label>
+    <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetToday" type="text" inputmode="numeric" placeholder="0"></div>
+    <div class="kv glass">
+      <div><span>Gastado</span><b id="cSpent">$0</b></div>
+      <div><span>Saldo</span><b id="cLeft">$0</b></div>
+    </div>
+    <button class="btn glass" id="cCopySpent">Copiar gastado para el Excel</button>
+    <label id="cTomorrowLabel">Presupuesto de mañana</label>
+    <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetTomorrow" type="text" inputmode="numeric" placeholder="0"></div>
+    <p class="hint">Mañana a las 00:00 (hora Colombia) la app arranca con ese presupuesto.</p>
+    <button class="btn glass primary" id="cSave">Guardar</button>
+    <button class="btn glass" id="cClose">Cerrar</button>
+  </div>
+</div>
 
 <div class="modal" id="detail">
   <div class="sheet glass detail">
@@ -214,10 +263,25 @@
   function load(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : d; }catch(e){ return d; } }
   function save(){ try{ localStorage.setItem(LS_M, JSON.stringify(methods)); localStorage.setItem(LS_E, JSON.stringify(entries)); }catch(e){ console.warn('No se pudo guardar', e); } }
 
-  const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
-  const dayKey = d => { const x = new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+  const fmt = n => (n<0?'-':'') + '$' + Math.abs(Math.round(n)).toLocaleString('es-CO');
+  // Todos los días se calculan en hora de Colombia, sin importar la zona del teléfono
+  const TZ = 'America/Bogota';
+  const keyFmt = new Intl.DateTimeFormat('en-CA', {timeZone:TZ, year:'numeric', month:'2-digit', day:'2-digit'});
+  const dayKey = d => keyFmt.format(new Date(d));            // 'YYYY-MM-DD' en Bogotá
   const today = () => dayKey(Date.now());
+  const keyDate = k => { const [y,m,d] = k.split('-').map(Number); return new Date(Date.UTC(y, m-1, d, 12)); };
+  const addDays = (k, n) => dayKey(keyDate(k).getTime() + n*86400000);
+  const dayLabel = (k, o) => keyDate(k).toLocaleDateString('es-CO', Object.assign({timeZone:TZ}, o));
+  const timeLabel = ts => new Date(ts).toLocaleTimeString('es-CO', {timeZone:TZ, hour:'2-digit', minute:'2-digit'});
   const digits = s => (s||'').replace(/\D/g,'');
+
+  // ---- presupuesto por día
+  const LS_B = 'gastos.budgets';
+  let budgets = (()=>{ try{ const v = JSON.parse(localStorage.getItem(LS_B)); return v && typeof v==='object' && !Array.isArray(v) ? v : {}; }catch(_){ return {}; } })();
+  const saveBudgets = () => { try{ localStorage.setItem(LS_B, JSON.stringify(budgets)); }catch(_){} };
+  const budgetOf = k => Number(budgets[k]) || 0;
+  const spentOn = k => entries.filter(e => dayKey(e.ts) === k).reduce((s,e)=>s+e.amount, 0);
+  const lastBudget = () => { const ks = Object.keys(budgets).sort(); return ks.length ? Number(budgets[ks[ks.length-1]]) : 0; };
 
   // ---- amount input formatting
   const amountEl = $('#amount');
@@ -293,6 +357,44 @@
     }catch(_){ return ''; }
   }
 
+  // ---- cuadre (cierre del día + presupuesto de mañana)
+  const cmodal = $('#cuadre');
+  const fmtInput = el => { el.addEventListener('input', () => { const d = digits(el.value).slice(0,12); el.value = d ? Number(d).toLocaleString('es-CO') : ''; }); };
+  fmtInput($('#cBudgetToday')); fmtInput($('#cBudgetTomorrow'));
+  const setMoney = (el, n) => { el.value = n ? Number(n).toLocaleString('es-CO') : ''; };
+  function openCuadre(){
+    const t = today(), tm = addDays(t, 1);
+    $('#cTitle').textContent = 'Cuadre · ' + dayLabel(t, {weekday:'long', day:'numeric', month:'short'});
+    $('#cTomorrowLabel').textContent = 'Presupuesto de mañana · ' + dayLabel(tm, {weekday:'long', day:'numeric', month:'short'});
+    setMoney($('#cBudgetToday'), budgetOf(t));
+    setMoney($('#cBudgetTomorrow'), budgetOf(tm) || budgetOf(t) || lastBudget());
+    refreshCuadre();
+    cmodal.classList.add('open');
+  }
+  function refreshCuadre(){
+    const t = today(), spent = spentOn(t), b = Number(digits($('#cBudgetToday').value)) || 0;
+    $('#cSpent').textContent = fmt(spent);
+    const left = b - spent; $('#cLeft').textContent = b ? fmt(left) : '—'; $('#cLeft').style.color = b && left < 0 ? 'var(--danger)' : '';
+  }
+  $('#cBudgetToday').addEventListener('input', refreshCuadre);
+  $('#openCuadre').addEventListener('click', openCuadre);
+  $('#cSave').addEventListener('click', ()=>{
+    const t = today(), tm = addDays(t, 1);
+    const bt = Number(digits($('#cBudgetToday').value)) || 0, btm = Number(digits($('#cBudgetTomorrow').value)) || 0;
+    if(bt) budgets[t] = bt; else delete budgets[t];
+    if(btm) budgets[tm] = btm; else delete budgets[tm];
+    saveBudgets(); render(); cmodal.classList.remove('open');
+    toast(btm ? 'Mañana arrancas con ' + fmt(btm) : 'Guardado');
+  });
+  $('#cCopySpent').addEventListener('click', async ()=>{
+    const v = String(spentOn(today()));
+    try{ await Promise.race([navigator.clipboard.writeText(v), new Promise((_,rej)=>setTimeout(rej, 800))]); }
+    catch(_){ const ta = document.createElement('textarea'); ta.value = v; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} document.body.removeChild(ta); }
+    toast('Copiado: ' + v);
+  });
+  $('#cClose').addEventListener('click', ()=>cmodal.classList.remove('open'));
+  cmodal.addEventListener('click', ev=>{ if(ev.target===cmodal) cmodal.classList.remove('open'); });
+
   // ---- detail sheet
   const dmodal = $('#detail'); let detailId = null;
   function openDetail(e){
@@ -301,7 +403,7 @@
     $('#dAmount').textContent = fmt(e.amount);
     $('#dDot').style.background = c; $('#dDot').style.color = c;
     $('#dMethod').textContent = e.methodName;
-    $('#dWhen').textContent = new Date(e.ts).toLocaleString('es-CO',{weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+    $('#dWhen').textContent = dayLabel(dayKey(e.ts), {weekday:'short', day:'numeric', month:'short'}) + ', ' + timeLabel(e.ts);
     $('#dNote').value = e.note || '';
     renderLoc(e);
     dmodal.classList.add('open');
@@ -329,16 +431,30 @@
     const t = today();
     const todays = entries.filter(e => dayKey(e.ts) === t);
     const sum = a => a.reduce((s,e)=>s+e.amount,0);
-    $('#todayTotal').textContent = fmt(sum(todays));
+    const spent = sum(todays), bud = budgetOf(t);
+    $('#todayTotal').textContent = fmt(spent);
     $('#todayCount').textContent = todays.length ? todays.length + (todays.length===1?' gasto':' gastos') : '';
-    $('#dateLabel').textContent = new Date().toLocaleDateString('es-CO',{weekday:'long', day:'numeric', month:'short'});
+    $('#dateLabel').textContent = 'Hoy · ' + dayLabel(t, {weekday:'long', day:'numeric', month:'short'});
+    const bb = $('#budgetBox');
+    if(bud){
+      const left = bud - spent, pct = Math.min(100, Math.round(spent / bud * 100));
+      bb.classList.remove('nobudget'); bb.classList.toggle('over', left < 0);
+      $('#budgetOf').textContent = 'de ' + fmt(bud);
+      $('#budgetLeft').textContent = left >= 0 ? 'Quedan ' + fmt(left) : 'Te pasaste ' + fmt(-left);
+      $('#budgetBar').style.width = pct + '%';
+    }else{
+      bb.classList.add('nobudget');
+      $('#budgetOf').textContent = '';
+      $('#budgetLeft').textContent = 'Sin presupuesto para hoy · toca Cuadre';
+      $('#budgetBar').style.width = '0%';
+    }
 
     const tl = $('#todayList'); tl.innerHTML='';
     if(!todays.length){ tl.innerHTML = '<div class="empty">Nada todavía. Escribe un valor y toca con qué pagaste.</div>'; }
     todays.forEach(e => {
       const m = methods.find(x=>x.id===e.method);
       const r = document.createElement('div'); r.className='row';
-      const time = new Date(e.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+      const time = timeLabel(e.ts);
       r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
         <div class="info"><b>${esc(e.methodName)}</b><small>${time}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
         <span class="amt">${fmt(e.amount)}</span>
@@ -348,16 +464,17 @@
       tl.appendChild(r);
     });
 
-    const wl = $('#weekList'); wl.innerHTML=''; let wt=0;
+    const wl = $('#weekList'); wl.innerHTML=''; let wt=0, wb=0;
     for(let i=0;i<7;i++){
-      const d = new Date(); d.setDate(d.getDate()-i); const k = dayKey(d);
-      const s = sum(entries.filter(e=>dayKey(e.ts)===k)); wt += s;
+      const k = addDays(t, -i);
+      const s = spentOn(k), b = budgetOf(k); wt += s; wb += b;
       const row = document.createElement('div'); row.className='day';
-      const label = i===0?'Hoy':i===1?'Ayer':d.toLocaleDateString('es-CO',{weekday:'short', day:'numeric'});
-      row.innerHTML = `<span>${label}</span><b>${s?fmt(s):'—'}</b>`;
+      const label = i===0?'Hoy':i===1?'Ayer':dayLabel(k, {weekday:'short', day:'numeric'});
+      const saldo = b ? `<small class="${b-s<0?'neg':'pos'}">${b-s<0?'-':'+'}${fmt(Math.abs(b-s)).slice(0)}</small>` : '';
+      row.innerHTML = `<span>${label}${b?` <small>· de ${fmt(b)}</small>`:''}</span><b>${s?fmt(s):'—'} ${saldo}</b>`;
       wl.appendChild(row);
     }
-    $('#weekTotal').textContent = fmt(wt);
+    $('#weekTotal').textContent = fmt(wt) + (wb ? ' de ' + fmt(wb) : '');
   }
 
   // ---- toast + undo
@@ -411,14 +528,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') { budgets = d.budgets; saveBudgets(); } save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{ if(confirm('¿Borrar todos los gastos? No se puede deshacer.')){ entries=[]; save(); render(); modal.classList.remove('open'); } });
@@ -426,6 +543,7 @@
   function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
+  setInterval(render, 60000); // por si pasa la medianoche con la app abierta
   renderMethods(); render();
 })();
 </script>
