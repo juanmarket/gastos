@@ -101,6 +101,20 @@
   .btn.danger{color:var(--danger)}
   .hint{font-size:12px;color:var(--muted);margin:6px 2px 14px;line-height:1.4}
   button.glass{cursor:pointer}
+  .row{cursor:pointer}
+  .row:active{background:rgba(127,127,140,.12)}
+
+  /* detail */
+  .detail .big{font-size:40px;font-weight:800;letter-spacing:-.5px;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+  .detail .meta{color:var(--muted);font-size:14px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .detail .meta .dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 8px currentColor}
+  .detail label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
+  .detail textarea{width:100%;min-height:110px;resize:vertical;outline:0;color:var(--text);padding:14px 16px;font-size:16px;font-family:inherit;line-height:1.4}
+  .detail .loc{padding:14px 16px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .detail .loc span{color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+  .detail .loc a{color:var(--accent);font-weight:700;text-decoration:none;white-space:nowrap}
+  .toggle{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-top:8px;font-size:15px;font-weight:600}
+  .toggle input{width:22px;height:22px;accent-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -130,13 +144,30 @@
 
 <div class="toast glass" id="toast"><span id="toastMsg"></span><button id="undoBtn" style="display:none">Deshacer</button></div>
 
+<div class="modal" id="detail">
+  <div class="sheet glass detail">
+    <p class="big" id="dAmount"></p>
+    <p class="meta"><span class="dot" id="dDot"></span><b id="dMethod"></b><span>·</span><span id="dWhen"></span></p>
+    <label>Nota</label>
+    <textarea class="glass" id="dNote" placeholder="Escribe lo que quieras recordar de este gasto…"></textarea>
+    <label>Ubicación</label>
+    <div class="loc glass" id="dLoc"><span>Sin ubicación</span></div>
+    <button class="btn glass primary" id="dSave">Guardar</button>
+    <button class="btn glass danger" id="dDelete">Borrar este gasto</button>
+    <button class="btn glass" id="dClose">Cerrar</button>
+  </div>
+</div>
+
 <div class="modal" id="settings">
   <div class="sheet glass">
     <h2>Métodos de pago</h2>
-    <p class="hint">Color · Nombre · Enlace que abre la app (déjalo vacío para no abrir nada). Ejemplos: <b>bancolombia://</b>, <b>nequi://</b>, <b>shoebox://</b> (Apple Wallet).</p>
+    <p class="hint">Color · Nombre · Enlace que abre la app (vacío = no abre nada). Nequi: <b>nequi://</b>. Para apps sin enlace propio (Bancolombia, Wallet) crea un Atajo en la app Atajos llamado igual, con la acción "Abrir app", y usa <b>shortcuts://run-shortcut?name=Bancolombia</b>.</p>
     <div id="methodEditor"></div>
     <button class="btn glass" id="addMethod">+ Agregar método</button>
     <button class="btn glass primary" id="saveMethods">Guardar</button>
+    <h2 style="margin-top:26px">Ubicación</h2>
+    <label class="toggle glass"><span>Guardar dónde pagué (GPS)</span><input type="checkbox" id="geoToggle"></label>
+    <p class="hint">Se guarda solo en tu teléfono. Al abrir el detalle de un gasto puedes verlo en Mapas.</p>
     <h2 style="margin-top:26px">Datos</h2>
     <button class="btn glass" id="exportBtn">Exportar copia (JSON)</button>
     <button class="btn glass" id="importBtn">Importar copia</button>
@@ -149,22 +180,35 @@
 <script>
 (function(){
   const $ = s => document.querySelector(s);
-  const LS_M = 'gastos.methods', LS_E = 'gastos.entries';
+  const LS_M = 'gastos.methods', LS_E = 'gastos.entries', LS_V = 'gastos.v', LS_GEO = 'gastos.geo';
+  const SC = n => 'shortcuts://run-shortcut?name=' + encodeURIComponent(n);
+  const WALLET = SC('Wallet');
 
   const DEFAULT_METHODS = [
-    {id:'bancolombia', name:'Bancolombia', sub:'App', url:'bancolombia://', color:'#ffd400'},
+    {id:'bancolombia', name:'Bancolombia', sub:'App', url:SC('Bancolombia'), color:'#ffd400'},
     {id:'nequi',       name:'Nequi',       sub:'App', url:'nequi://',       color:'#e6007e'},
     {id:'efectivo',    name:'Efectivo',    sub:'',    url:'',               color:'#3ccf7a'},
-    {id:'aw-bcol-tc',  name:'Bancolombia TC', sub:'Apple Wallet', url:'shoebox://', color:'#ffd400'},
-    {id:'aw-bcol-db',  name:'Bancolombia Débito', sub:'Apple Wallet', url:'shoebox://', color:'#ffb300'},
-    {id:'aw-rappi-tc', name:'Rappi Crédito', sub:'Apple Wallet', url:'shoebox://', color:'#ff441f'},
-    {id:'aw-rappi-db', name:'Rappi Débito', sub:'Apple Wallet', url:'shoebox://', color:'#ff7a5c'},
-    {id:'aw-nu',       name:'Nu',           sub:'Apple Wallet', url:'shoebox://', color:'#820ad1'},
+    {id:'aw-bcol-tc',  name:'Bancolombia TC', sub:'Apple Wallet', url:WALLET, color:'#ffd400'},
+    {id:'aw-bcol-db',  name:'Bancolombia Débito', sub:'Apple Wallet', url:WALLET, color:'#ffb300'},
+    {id:'aw-rappi-tc', name:'Rappi Crédito', sub:'Apple Wallet', url:WALLET, color:'#ff441f'},
+    {id:'aw-rappi-db', name:'Rappi Débito', sub:'Apple Wallet', url:WALLET, color:'#ff7a5c'},
+    {id:'aw-nu',       name:'Nu',           sub:'Apple Wallet', url:WALLET, color:'#820ad1'},
   ];
 
   let methods = load(LS_M, DEFAULT_METHODS);
   let entries = load(LS_E, []);
   let lastAdded = null, toastTimer;
+  let geoOn = localStorage.getItem(LS_GEO) !== '0';
+
+  // migrate links saved on the phone from v1 (bancolombia:// never opened, shoebox:// opened settings)
+  if((Number(localStorage.getItem(LS_V))||1) < 2){
+    methods.forEach(m => {
+      if(m.url === 'bancolombia://') m.url = SC('Bancolombia');
+      if(m.url === 'shoebox://') m.url = WALLET;
+    });
+    try{ localStorage.setItem(LS_V, '2'); }catch(_){}
+    save();
+  }
 
   function load(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : d; }catch(e){ return d; } }
   function save(){ try{ localStorage.setItem(LS_M, JSON.stringify(methods)); localStorage.setItem(LS_E, JSON.stringify(entries)); }catch(e){ console.warn('No se pudo guardar', e); } }
@@ -220,8 +264,64 @@
     amountEl.value=''; $('#note').value='';
     render();
     toast(`${fmt(amt)} · ${m.name}`, true);
+    locate(e);
     if(m.url){ setTimeout(()=>{ window.location.href = m.url; }, 250); }
   }
+
+  // ---- location (non-blocking; fills in after the fact)
+  function locate(e){
+    if(!geoOn || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+      const t = entries.find(x=>x.id===e.id); if(!t) return;
+      t.lat = +pos.coords.latitude.toFixed(6); t.lng = +pos.coords.longitude.toFixed(6); t.acc = Math.round(pos.coords.accuracy);
+      save();
+      if(detailId === t.id) renderLoc(t);
+    }, ()=>{}, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+  }
+  async function placeName(e){
+    if(e.place) return e.place;
+    try{
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.lat}&lon=${e.lng}&zoom=18&accept-language=es`);
+      const d = await r.json(); const a = d.address || {};
+      const short = v => (v && v.length <= 40) ? v : '';
+      const name = short(d.name) || short(a.amenity) || short(a.shop) || '';
+      const street = [a.road, a.house_number].filter(Boolean).join(' ');
+      const area = a.neighbourhood || a.suburb || a.city_district || a.city || a.town || '';
+      e.place = [name, street, area].filter(Boolean).join(', ').slice(0, 90) || (e.lat + ', ' + e.lng);
+      save(); return e.place;
+    }catch(_){ return ''; }
+  }
+
+  // ---- detail sheet
+  const dmodal = $('#detail'); let detailId = null;
+  function openDetail(e){
+    detailId = e.id;
+    const m = methods.find(x=>x.id===e.method); const c = (m&&m.color)||'#666';
+    $('#dAmount').textContent = fmt(e.amount);
+    $('#dDot').style.background = c; $('#dDot').style.color = c;
+    $('#dMethod').textContent = e.methodName;
+    $('#dWhen').textContent = new Date(e.ts).toLocaleString('es-CO',{weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+    $('#dNote').value = e.note || '';
+    renderLoc(e);
+    dmodal.classList.add('open');
+  }
+  function renderLoc(e){
+    const el = $('#dLoc');
+    if(e.lat == null){ el.innerHTML = `<span>${geoOn ? 'Buscando ubicación…' : 'Sin ubicación'}</span>`; return; }
+    const maps = `https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(e.methodName+' '+fmt(e.amount))}`;
+    el.innerHTML = `<span>${esc(e.place || (e.lat+', '+e.lng))}</span><a href="${maps}" target="_blank" rel="noopener">Ver en Mapas</a>`;
+    if(!e.place) placeName(e).then(p => { if(p && detailId===e.id) el.querySelector('span').textContent = p; });
+  }
+  $('#dSave').addEventListener('click', ()=>{
+    const e = entries.find(x=>x.id===detailId); if(e){ e.note = $('#dNote').value.trim(); save(); render(); }
+    dmodal.classList.remove('open');
+  });
+  $('#dDelete').addEventListener('click', ()=>{
+    if(!confirm('¿Borrar este gasto?')) return;
+    entries = entries.filter(x=>x.id!==detailId); save(); render(); dmodal.classList.remove('open');
+  });
+  $('#dClose').addEventListener('click', ()=>dmodal.classList.remove('open'));
+  dmodal.addEventListener('click', ev=>{ if(ev.target===dmodal) dmodal.classList.remove('open'); });
 
   // ---- lists
   function render(){
@@ -239,10 +339,11 @@
       const r = document.createElement('div'); r.className='row';
       const time = new Date(e.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
       r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
-        <div class="info"><b>${esc(e.methodName)}</b><small>${time}${e.note?' · '+esc(e.note):''}</small></div>
+        <div class="info"><b>${esc(e.methodName)}</b><small>${time}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
         <span class="amt">${fmt(e.amount)}</span>
         <button class="del" title="Borrar">×</button>`;
-      r.querySelector('.del').addEventListener('click', ()=>{ entries = entries.filter(x=>x.id!==e.id); save(); render(); });
+      r.querySelector('.del').addEventListener('click', ev=>{ ev.stopPropagation(); entries = entries.filter(x=>x.id!==e.id); save(); render(); });
+      r.addEventListener('click', ()=>openDetail(e));
       tl.appendChild(r);
     });
 
@@ -272,7 +373,8 @@
 
   // ---- settings
   const modal = $('#settings');
-  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); modal.classList.add('open'); });
+  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); $('#geoToggle').checked = geoOn; modal.classList.add('open'); });
+  $('#geoToggle').addEventListener('change', ev=>{ geoOn = ev.target.checked; try{ localStorage.setItem(LS_GEO, geoOn?'1':'0'); }catch(_){} if(geoOn && navigator.geolocation) navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:8000}); });
   $('#closeSettings').addEventListener('click', ()=>modal.classList.remove('open'));
   modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
 
@@ -300,7 +402,8 @@
     const next = rows.map(r=>{
       const [c,n,u] = r.querySelectorAll('input');
       const url = u.value.trim();
-      return { id:r.dataset.id, name:n.value.trim()||'Sin nombre', url, color:c.value, sub: url.startsWith('shoebox')?'Apple Wallet':(url?'App':'') };
+      const old = methods.find(x=>x.id===r.dataset.id);
+      return { id:r.dataset.id, name:n.value.trim()||'Sin nombre', url, color:c.value, sub: (old && old.sub) || (url?'App':'') };
     });
     if(next.length){ methods = next; save(); renderMethods(); render(); }
     modal.classList.remove('open');

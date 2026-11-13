@@ -21,18 +21,32 @@ Si te equivocaste, el aviso de abajo tiene **Deshacer** por unos segundos. Tambi
 
 Abre la URL en Safari → botón Compartir → **Agregar a pantalla de inicio**. Abre a pantalla completa y conserva los datos aunque cierres Safari.
 
+## Detalle de un gasto
+
+Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí.
+
+## Ubicación (GPS)
+
+Activada por defecto en ⚙︎. Al registrar un gasto la app pide la ubicación en segundo plano y la guarda con el gasto. La primera vez iOS pregunta si permites la ubicación. El nombre del lugar se consulta a OpenStreetMap solo cuando abres el detalle.
+
 ## Enlaces de las apps
 
 Se editan en ⚙︎ (ajustes). Los que vienen por defecto:
 
 | App | Enlace |
 |---|---|
-| Bancolombia | `bancolombia://` |
 | Nequi | `nequi://` |
-| Apple Wallet | `shoebox://` |
+| Bancolombia | `shortcuts://run-shortcut?name=Bancolombia` |
+| Apple Wallet | `shortcuts://run-shortcut?name=Wallet` |
 | Efectivo | (vacío, no abre nada) |
 
-Si alguno no abre la app, puede que el banco haya cambiado su esquema. Edítalo en ajustes.
+Bancolombia y Wallet no tienen un enlace público que los abra, así que se usan **Atajos de iOS**. Hay que crearlos una vez:
+
+1. Abre la app **Atajos** → **+** → busca la acción **Abrir app** → elige **Bancolombia**.
+2. Nómbralo exactamente **Bancolombia** y guarda.
+3. Repite con la app **Wallet**, nombrándolo **Wallet**.
+
+Para pagar con una tarjeta en el datáfono lo más rápido sigue siendo doble clic en el botón lateral del iPhone; el botón de la app te deja el gasto anotado y abre Wallet por si quieres elegir otra tarjeta.
 
 ## Copia de seguridad
 
