@@ -137,8 +137,37 @@
   .detail .loc{padding:14px 16px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
   .detail .loc span{color:var(--muted);overflow:hidden;text-overflow:ellipsis}
   .detail .loc a{color:var(--accent);font-weight:700;text-decoration:none;white-space:nowrap}
-  .toggle{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-top:8px;font-size:15px;font-weight:600}
-  .toggle input{width:22px;height:22px;accent-color:var(--accent)}
+  .toggle{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-top:8px;font-size:15px;font-weight:600;gap:12px}
+  .toggle input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+  .toggle span{text-transform:none;letter-spacing:0;font-size:15px;color:var(--text);margin:0}
+
+  /* ahorro */
+  .noterow{display:flex;gap:8px;margin-bottom:14px}
+  .noterow .note{margin-bottom:0;flex:1;min-width:0}
+  .chip{color:var(--muted);padding:0 14px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;transition:.15s}
+  .chip.on{background:#ff9f0a;color:#1a1200;border-color:transparent;box-shadow:0 2px 10px rgba(255,159,10,.45)}
+  .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:#ff9f0a;color:#1a1200;margin-left:6px;vertical-align:middle}
+  .tag.ok{background:var(--ok);color:#042}
+  .row .chk{width:22px;height:22px;accent-color:var(--ok);flex:none}
+
+  /* quincena */
+  .qbanner{padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;border-color:rgba(79,140,255,.5)}
+  .qbanner b{display:block;font-size:14px} .qbanner small{color:var(--muted);font-size:12px}
+  .qbanner .qb{display:flex;gap:6px;flex:none}
+  .qbanner button{border:0;border-radius:999px;padding:8px 12px;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
+  .qbanner button#qChange{background:var(--glass2);color:var(--text);border:1px solid var(--edge)}
+  .qnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  .qnav h2{margin:0;text-align:center;flex:1;font-size:17px}
+  .qrep label,.cuadre label span{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
+  .cuadre label span{display:inline;margin:0;text-transform:none;font-weight:500}
+  .kv b{font-size:17px}
+  .baserow{display:flex;gap:8px} .baserow>div{flex:1;min-width:0}
+  .baserow label{display:block;font-size:12px;color:var(--muted);margin:0 4px 6px}
+  .hbtns .pill{padding:0 12px;font-size:13px;height:34px}
+  .brow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .brow>span{flex:1;min-width:0}
+  header{align-items:flex-start}
+  header h1{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -148,14 +177,21 @@
     <h1 id="dateLabel">Hoy</h1>
     <p class="today"><span id="todayTotal">$0</span> <span class="of" id="budgetOf"></span></p>
   </div>
-  <div class="hbtns">
-    <button class="pill glass" id="openCuadre">Cuadre</button>
-    <button class="iconbtn glass" id="openSettings" title="Ajustes">⚙︎</button>
-  </div>
+  <button class="iconbtn glass" id="openSettings" title="Ajustes">⚙︎</button>
 </header>
 <div class="budget glass nobudget" id="budgetBox">
   <div class="bar"><i id="budgetBar"></i></div>
-  <span id="budgetLeft"></span>
+  <div class="brow">
+    <span id="budgetLeft"></span>
+    <div class="hbtns">
+      <button class="pill glass" id="openCuadre">Cuadre</button>
+      <button class="pill glass" id="openQ">Quincena</button>
+    </div>
+  </div>
+</div>
+<div class="qbanner glass" id="qBanner" style="display:none">
+  <div><b id="qBannerTitle">Nueva quincena</b><small id="qBannerSub"></small></div>
+  <div class="qb"><button id="qKeep">Sigo igual</button><button id="qChange">Cambiar</button></div>
 </div>
 
 <div class="amountbox glass">
@@ -163,12 +199,18 @@
   <input id="amount" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" autocomplete="off">
   <button class="copy" id="copyBtn">Copiar</button>
 </div>
-<input class="note glass" id="note" type="text" placeholder="Nota (opcional): almuerzo, uber, mercado…" autocomplete="off">
+<div class="noterow">
+  <input class="note glass" id="note" type="text" placeholder="Nota (opcional): almuerzo, uber, mercado…" autocomplete="off">
+  <button class="chip glass" id="ahorroChip" title="Este gasto sale del ahorro y hay que reponerlo">Del ahorro</button>
+</div>
 
 <div class="grid" id="methods"></div>
 
 <div class="section"><h2>Hoy</h2><span id="todayCount"></span></div>
 <div class="list glass" id="todayList"></div>
+
+<div class="section" id="repSection" style="display:none"><h2>Por reponer al ahorro</h2><span id="repTotal"></span></div>
+<div class="list glass" id="repList" style="display:none"></div>
 
 <div class="section"><h2>Últimos 7 días</h2><span id="weekTotal"></span></div>
 <div class="list glass" id="weekList"></div>
@@ -178,16 +220,17 @@
 <div class="modal" id="cuadre">
   <div class="sheet glass cuadre">
     <h2 id="cTitle">Cuadre de hoy</h2>
-    <label>Presupuesto de hoy</label>
+    <label>Presupuesto de hoy <span id="cTodayAuto"></span></label>
     <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetToday" type="text" inputmode="numeric" placeholder="0"></div>
     <div class="kv glass">
       <div><span>Gastado</span><b id="cSpent">$0</b></div>
       <div><span>Saldo</span><b id="cLeft">$0</b></div>
+      <div><span>Del ahorro</span><b id="cAhorro">$0</b></div>
     </div>
     <button class="btn glass" id="cCopySpent">Copiar gastado para el Excel</button>
     <label id="cTomorrowLabel">Presupuesto de mañana</label>
     <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetTomorrow" type="text" inputmode="numeric" placeholder="0"></div>
-    <p class="hint">Mañana a las 00:00 (hora Colombia) la app arranca con ese presupuesto.</p>
+    <p class="hint" id="cTomorrowHint"></p>
     <button class="btn glass primary" id="cSave">Guardar</button>
     <button class="btn glass" id="cClose">Cerrar</button>
   </div>
@@ -201,15 +244,48 @@
     <textarea class="glass" id="dNote" placeholder="Escribe lo que quieras recordar de este gasto…"></textarea>
     <label>Ubicación</label>
     <div class="loc glass" id="dLoc"><span>Sin ubicación</span></div>
+    <label>Ahorro</label>
+    <label class="toggle glass"><span>Salió del ahorro (no cuenta en el día)</span><input type="checkbox" id="dAhorro"></label>
+    <label class="toggle glass" id="dRepRow"><span>Ya lo repuse al ahorro</span><input type="checkbox" id="dRepuesto"></label>
     <button class="btn glass primary" id="dSave">Guardar</button>
     <button class="btn glass danger" id="dDelete">Borrar este gasto</button>
     <button class="btn glass" id="dClose">Cerrar</button>
   </div>
 </div>
 
+<div class="modal" id="qmodal">
+  <div class="sheet glass qrep">
+    <div class="qnav"><button class="iconbtn glass" id="qPrevBtn">‹</button><h2 id="qTitle">Quincena</h2><button class="iconbtn glass" id="qNextBtn">›</button></div>
+    <div class="kv glass">
+      <div><span>Presupuesto base</span><b id="qBase">$0</b></div>
+      <div><span>Gastado</span><b id="qSpent">$0</b></div>
+      <div><span>Diferencia</span><b id="qDiff">$0</b></div>
+    </div>
+    <div class="kv glass" style="margin-top:8px">
+      <div><span>Días pasado</span><b id="qOver">0</b></div>
+      <div><span>Del ahorro</span><b id="qAhorro">$0</b></div>
+      <div><span>Por reponer</span><b id="qRep">$0</b></div>
+    </div>
+    <label>Por método</label>
+    <div class="list glass" id="qMethods"></div>
+    <label>Día a día</label>
+    <div class="list glass" id="qDays"></div>
+    <button class="btn glass" id="qCopy">Copiar tabla para el Excel</button>
+    <p class="hint">Copia filas Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.</p>
+    <button class="btn glass" id="qClose">Cerrar</button>
+  </div>
+</div>
+
 <div class="modal" id="settings">
   <div class="sheet glass">
-    <h2>Métodos de pago</h2>
+    <h2>Presupuesto base</h2>
+    <p class="hint">Lo que arranca cada día antes de sumar el saldo de ayer. Cámbialo cuando te paguen la quincena.</p>
+    <div class="baserow">
+      <div><label>Lunes a viernes</label><div class="amountbox glass small"><span class="cur">$</span><input id="baseWd" type="text" inputmode="numeric"></div></div>
+      <div><label>Sábado y domingo</label><div class="amountbox glass small"><span class="cur">$</span><input id="baseWe" type="text" inputmode="numeric"></div></div>
+    </div>
+    <button class="btn glass primary" id="saveBase">Guardar base</button>
+    <h2 style="margin-top:26px">Métodos de pago</h2>
     <p class="hint">Color · Nombre · Enlace que abre la app (vacío = no abre nada). Nequi: <b>nequi://</b>. Para apps sin enlace propio (Bancolombia, Wallet) crea un Atajo en la app Atajos llamado igual, con la acción "Abrir app", y usa <b>shortcuts://run-shortcut?name=Bancolombia</b>.</p>
     <div id="methodEditor"></div>
     <button class="btn glass" id="addMethod">+ Agregar método</button>
@@ -276,12 +352,41 @@
   const digits = s => (s||'').replace(/\D/g,'');
 
   // ---- presupuesto por día
-  const LS_B = 'gastos.budgets';
-  let budgets = (()=>{ try{ const v = JSON.parse(localStorage.getItem(LS_B)); return v && typeof v==='object' && !Array.isArray(v) ? v : {}; }catch(_){ return {}; } })();
-  const saveBudgets = () => { try{ localStorage.setItem(LS_B, JSON.stringify(budgets)); }catch(_){} };
-  const budgetOf = k => Number(budgets[k]) || 0;
-  const spentOn = k => entries.filter(e => dayKey(e.ts) === k).reduce((s,e)=>s+e.amount, 0);
-  const lastBudget = () => { const ks = Object.keys(budgets).sort(); return ks.length ? Number(budgets[ks[ks.length-1]]) : 0; };
+  // Regla (la misma del Excel): presupuesto de hoy = base del día + saldo de ayer (positivo o negativo).
+  // budgets[k] guarda solo los valores que fijaste a mano; los demás días se calculan.
+  const LS_B = 'gastos.budgets', LS_BASE = 'gastos.base', LS_Q = 'gastos.quincenas';
+  const loadObj = (k, d) => { try{ const v = JSON.parse(localStorage.getItem(k)); return v && typeof v==='object' && !Array.isArray(v) ? v : d; }catch(_){ return d; } };
+  let budgets = loadObj(LS_B, {});
+  let base = Object.assign({wd:40000, we:96000}, loadObj(LS_BASE, {}));
+  let qConfirmed = load(LS_Q, []);
+  const saveBudgets = () => { try{ localStorage.setItem(LS_B, JSON.stringify(budgets)); localStorage.setItem(LS_BASE, JSON.stringify(base)); localStorage.setItem(LS_Q, JSON.stringify(qConfirmed)); }catch(_){} };
+  const isWeekend = k => { const d = keyDate(k).getUTCDay(); return d === 0 || d === 6; };
+  const baseOf = k => isWeekend(k) ? base.we : base.wd;
+  const isAhorro = e => !!e.ahorro;
+  const spentOn = k => entries.filter(e => !isAhorro(e) && dayKey(e.ts) === k).reduce((s,e)=>s+e.amount, 0);
+  const ahorroOn = k => entries.filter(e => isAhorro(e) && dayKey(e.ts) === k).reduce((s,e)=>s+e.amount, 0);
+  const firstKey = () => { const ks = Object.keys(budgets); entries.forEach(e => ks.push(dayKey(e.ts))); return ks.length ? ks.sort()[0] : today(); };
+  const budgetMemo = {};
+  function budgetOf(k){
+    if(budgets[k] != null) return Number(budgets[k]) || 0;
+    if(budgetMemo[k] != null) return budgetMemo[k];
+    let v;
+    if(k <= firstKey()) v = baseOf(k);
+    else { const p = addDays(k, -1); v = baseOf(k) + (budgetOf(p) - spentOn(p)); }
+    budgetMemo[k] = v; return v;
+  }
+  const isManual = k => budgets[k] != null;
+  const clearMemo = () => { for(const k in budgetMemo) delete budgetMemo[k]; };
+
+  // ---- quincenas: 1–15 y 16–fin de mes. Pagan el 15 y el 30/31 (a veces antes si cae en fin de semana).
+  const monthDays = k => { const [y,m] = k.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
+  const qOf = k => { const [y,m,d] = k.split('-').map(Number); return {id:`${y}-${String(m).padStart(2,'0')}-${d<=15?1:2}`, y, m, half:d<=15?1:2}; };
+  const qRange = q => { const [y,m,h] = q.split('-').map(Number); const mm = String(m).padStart(2,'0'); const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return h===1 ? [`${y}-${mm}-01`, `${y}-${mm}-15`] : [`${y}-${mm}-16`, `${y}-${mm}-${last}`]; };
+  const qNext = q => { const [y,m,h] = q.split('-').map(Number); return h===1 ? `${y}-${String(m).padStart(2,'0')}-2` : `${m===12?y+1:y}-${String(m===12?1:m+1).padStart(2,'0')}-1`; };
+  const qPrev = q => { const [y,m,h] = q.split('-').map(Number); return h===2 ? `${y}-${String(m).padStart(2,'0')}-1` : `${m===1?y-1:y}-${String(m===1?12:m-1).padStart(2,'0')}-2`; };
+  const qLabel = q => { const [a,b] = qRange(q); return dayLabel(a,{day:'numeric'}) + ' al ' + dayLabel(b,{day:'numeric', month:'long'}) + (q.slice(0,4)!==today().slice(0,4) ? ' ' + q.slice(0,4) : ''); };
+  // La quincena que viene se recuerda desde el día 14 (o 29) hasta que la confirmes
+  function upcomingQ(){ const t = today(), d = Number(t.slice(8)); const q = qOf(t); if(q.half===1 && d>=14) return qNext(q.id); if(q.half===2 && d>=Math.min(29, monthDays(t)-1)) return qNext(q.id); return null; }
 
   // ---- amount input formatting
   const amountEl = $('#amount');
@@ -324,14 +429,21 @@
     const amt = getAmount();
     if(!amt){ toast('Escribe un valor primero'); amountEl.focus(); return; }
     const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: amt, method: m.id, methodName: m.name, note: $('#note').value.trim() };
+    if(ahorroMode){ e.ahorro = true; e.repuesto = false; }
     entries.unshift(e); lastAdded = e; save();
     copyAmount().catch(()=>{});
-    amountEl.value=''; $('#note').value='';
+    amountEl.value=''; $('#note').value=''; setAhorroMode(false);
     render();
-    toast(isWallet(m) ? `${fmt(amt)} guardado · Ya puedes abrir tus tarjetas (doble clic al botón lateral)` : `${fmt(amt)} · ${m.name}`, true);
+    const tag = e.ahorro ? ' · del ahorro' : '';
+    toast(isWallet(m) ? `${fmt(amt)} guardado${tag} · Ya puedes abrir tus tarjetas (doble clic al botón lateral)` : `${fmt(amt)} · ${m.name}${tag}`, true);
     locate(e);
     if(m.url){ setTimeout(()=>{ window.location.href = m.url; }, 250); }
   }
+
+  // ---- "Del ahorro": se activa solo para el próximo gasto
+  let ahorroMode = false;
+  function setAhorroMode(v){ ahorroMode = v; $('#ahorroChip').classList.toggle('on', v); $('#ahorroChip').textContent = v ? 'Del ahorro ✓' : 'Del ahorro'; }
+  $('#ahorroChip').addEventListener('click', ()=>setAhorroMode(!ahorroMode));
 
   // ---- location (non-blocking; fills in after the fact)
   function locate(e){
@@ -363,28 +475,35 @@
   fmtInput($('#cBudgetToday')); fmtInput($('#cBudgetTomorrow'));
   const setMoney = (el, n) => { el.value = n ? Number(n).toLocaleString('es-CO') : ''; };
   function openCuadre(){
+    clearMemo();
     const t = today(), tm = addDays(t, 1);
     $('#cTitle').textContent = 'Cuadre · ' + dayLabel(t, {weekday:'long', day:'numeric', month:'short'});
     $('#cTomorrowLabel').textContent = 'Presupuesto de mañana · ' + dayLabel(tm, {weekday:'long', day:'numeric', month:'short'});
+    $('#cTodayAuto').textContent = isManual(t) ? '(fijado a mano)' : '(automático)';
     setMoney($('#cBudgetToday'), budgetOf(t));
-    setMoney($('#cBudgetTomorrow'), budgetOf(tm) || budgetOf(t) || lastBudget());
-    refreshCuadre();
+    $('#cAhorro').textContent = fmt(ahorroOn(t));
+    refreshCuadre(true);
     cmodal.classList.add('open');
   }
-  function refreshCuadre(){
-    const t = today(), spent = spentOn(t), b = Number(digits($('#cBudgetToday').value)) || 0;
+  function refreshCuadre(fillTomorrow){
+    const t = today(), tm = addDays(t, 1), spent = spentOn(t), b = Number(digits($('#cBudgetToday').value)) || 0;
     $('#cSpent').textContent = fmt(spent);
-    const left = b - spent; $('#cLeft').textContent = b ? fmt(left) : '—'; $('#cLeft').style.color = b && left < 0 ? 'var(--danger)' : '';
+    const left = b - spent; $('#cLeft').textContent = fmt(left); $('#cLeft').style.color = left < 0 ? 'var(--danger)' : '';
+    const auto = baseOf(tm) + left;
+    if(fillTomorrow) setMoney($('#cBudgetTomorrow'), isManual(tm) ? budgetOf(tm) : auto);
+    $('#cTomorrowHint').textContent = `Automático: base ${fmt(baseOf(tm))} ${left>=0?'+ sobró ':'− faltó '}${fmt(Math.abs(left))} = ${fmt(auto)}. Cámbialo solo si mañana es distinto. A las 00:00 (hora Colombia) arranca con ese valor.`;
   }
-  $('#cBudgetToday').addEventListener('input', refreshCuadre);
+  $('#cBudgetToday').addEventListener('input', ()=>refreshCuadre(true));
   $('#openCuadre').addEventListener('click', openCuadre);
   $('#cSave').addEventListener('click', ()=>{
     const t = today(), tm = addDays(t, 1);
     const bt = Number(digits($('#cBudgetToday').value)) || 0, btm = Number(digits($('#cBudgetTomorrow').value)) || 0;
-    if(bt) budgets[t] = bt; else delete budgets[t];
-    if(btm) budgets[tm] = btm; else delete budgets[tm];
+    clearMemo(); delete budgets[t]; delete budgets[tm];
+    if(bt !== budgetOf(t)) budgets[t] = bt;            // solo se guarda si lo cambiaste respecto al automático
+    clearMemo();
+    if(btm !== budgetOf(tm)) budgets[tm] = btm;
     saveBudgets(); render(); cmodal.classList.remove('open');
-    toast(btm ? 'Mañana arrancas con ' + fmt(btm) : 'Guardado');
+    toast('Mañana arrancas con ' + fmt(btm));
   });
   $('#cCopySpent').addEventListener('click', async ()=>{
     const v = String(spentOn(today()));
@@ -405,9 +524,11 @@
     $('#dMethod').textContent = e.methodName;
     $('#dWhen').textContent = dayLabel(dayKey(e.ts), {weekday:'short', day:'numeric', month:'short'}) + ', ' + timeLabel(e.ts);
     $('#dNote').value = e.note || '';
+    $('#dAhorro').checked = !!e.ahorro; $('#dRepuesto').checked = !!e.repuesto; $('#dRepRow').style.display = e.ahorro ? '' : 'none';
     renderLoc(e);
     dmodal.classList.add('open');
   }
+  $('#dAhorro').addEventListener('change', ev => { $('#dRepRow').style.display = ev.target.checked ? '' : 'none'; });
   function renderLoc(e){
     const el = $('#dLoc');
     if(e.lat == null){ el.innerHTML = `<span>${geoOn ? 'Buscando ubicación…' : 'Sin ubicación'}</span>`; return; }
@@ -416,7 +537,8 @@
     if(!e.place) placeName(e).then(p => { if(p && detailId===e.id) el.querySelector('span').textContent = p; });
   }
   $('#dSave').addEventListener('click', ()=>{
-    const e = entries.find(x=>x.id===detailId); if(e){ e.note = $('#dNote').value.trim(); save(); render(); }
+    const e = entries.find(x=>x.id===detailId);
+    if(e){ e.note = $('#dNote').value.trim(); e.ahorro = $('#dAhorro').checked; e.repuesto = e.ahorro && $('#dRepuesto').checked; if(!e.ahorro) delete e.repuesto; save(); render(); }
     dmodal.classList.remove('open');
   });
   $('#dDelete').addEventListener('click', ()=>{
@@ -428,26 +550,29 @@
 
   // ---- lists
   function render(){
+    clearMemo();
     const t = today();
     const todays = entries.filter(e => dayKey(e.ts) === t);
-    const sum = a => a.reduce((s,e)=>s+e.amount,0);
-    const spent = sum(todays), bud = budgetOf(t);
+    const spent = spentOn(t), bud = budgetOf(t), ah = ahorroOn(t);
     $('#todayTotal').textContent = fmt(spent);
-    $('#todayCount').textContent = todays.length ? todays.length + (todays.length===1?' gasto':' gastos') : '';
+    $('#todayCount').textContent = (todays.length ? todays.length + (todays.length===1?' gasto':' gastos') : '') + (ah ? ' · ahorro ' + fmt(ah) : '');
     $('#dateLabel').textContent = 'Hoy · ' + dayLabel(t, {weekday:'long', day:'numeric', month:'short'});
     const bb = $('#budgetBox');
-    if(bud){
-      const left = bud - spent, pct = Math.min(100, Math.round(spent / bud * 100));
+    {
+      const left = bud - spent, pct = bud > 0 ? Math.min(100, Math.round(spent / bud * 100)) : 100;
       bb.classList.remove('nobudget'); bb.classList.toggle('over', left < 0);
-      $('#budgetOf').textContent = 'de ' + fmt(bud);
+      const b0 = baseOf(t), dlt = bud - b0;
+      $('#budgetOf').textContent = 'de ' + fmt(bud) + (isManual(t) ? ' (fijado)' : dlt ? ` (base ${fmt(b0)} ${dlt>0?'+ sobró':'− faltó'} ${fmt(Math.abs(dlt))})` : '');
       $('#budgetLeft').textContent = left >= 0 ? 'Quedan ' + fmt(left) : 'Te pasaste ' + fmt(-left);
       $('#budgetBar').style.width = pct + '%';
-    }else{
-      bb.classList.add('nobudget');
-      $('#budgetOf').textContent = '';
-      $('#budgetLeft').textContent = 'Sin presupuesto para hoy · toca Cuadre';
-      $('#budgetBar').style.width = '0%';
     }
+    // recordatorio de quincena
+    const uq = upcomingQ(); const qb = $('#qBanner');
+    if(uq && !qConfirmed.includes(uq)){
+      qb.style.display = '';
+      $('#qBannerTitle').textContent = 'Nueva quincena · ' + qLabel(uq);
+      $('#qBannerSub').textContent = '¿Sigues con ' + fmt(base.wd) + ' entre semana y ' + fmt(base.we) + ' fines de semana?';
+    } else qb.style.display = 'none';
 
     const tl = $('#todayList'); tl.innerHTML='';
     if(!todays.length){ tl.innerHTML = '<div class="empty">Nada todavía. Escribe un valor y toca con qué pagaste.</div>'; }
@@ -456,7 +581,7 @@
       const r = document.createElement('div'); r.className='row';
       const time = timeLabel(e.ts);
       r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
-        <div class="info"><b>${esc(e.methodName)}</b><small>${time}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
+        <div class="info"><b>${esc(e.methodName)}${e.ahorro?`<span class="tag${e.repuesto?' ok':''}">${e.repuesto?'repuesto':'ahorro'}</span>`:''}</b><small>${time}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
         <span class="amt">${fmt(e.amount)}</span>
         <button class="del" title="Borrar">×</button>`;
       r.querySelector('.del').addEventListener('click', ev=>{ ev.stopPropagation(); entries = entries.filter(x=>x.id!==e.id); save(); render(); });
@@ -464,17 +589,34 @@
       tl.appendChild(r);
     });
 
+    // por reponer al ahorro (todas las fechas)
+    const rep = entries.filter(e => e.ahorro && !e.repuesto);
+    $('#repSection').style.display = $('#repList').style.display = rep.length ? '' : 'none';
+    if(rep.length){
+      $('#repTotal').textContent = fmt(rep.reduce((s,e)=>s+e.amount,0));
+      const rl = $('#repList'); rl.innerHTML='';
+      rep.forEach(e => {
+        const r = document.createElement('div'); r.className='row';
+        r.innerHTML = `<input type="checkbox" class="chk" title="Ya lo repuse">
+          <div class="info"><b>${esc(e.methodName)}</b><small>${dayLabel(dayKey(e.ts),{weekday:'short', day:'numeric', month:'short'})}${e.note?' · '+esc(e.note):''}</small></div>
+          <span class="amt">${fmt(e.amount)}</span>`;
+        r.querySelector('.chk').addEventListener('click', ev=>{ ev.stopPropagation(); e.repuesto = true; save(); toast('Repuesto ' + fmt(e.amount)); render(); });
+        r.addEventListener('click', ()=>openDetail(e));
+        rl.appendChild(r);
+      });
+    }
+
     const wl = $('#weekList'); wl.innerHTML=''; let wt=0, wb=0;
     for(let i=0;i<7;i++){
       const k = addDays(t, -i);
       const s = spentOn(k), b = budgetOf(k); wt += s; wb += b;
       const row = document.createElement('div'); row.className='day';
       const label = i===0?'Hoy':i===1?'Ayer':dayLabel(k, {weekday:'short', day:'numeric'});
-      const saldo = b ? `<small class="${b-s<0?'neg':'pos'}">${b-s<0?'-':'+'}${fmt(Math.abs(b-s)).slice(0)}</small>` : '';
-      row.innerHTML = `<span>${label}${b?` <small>· de ${fmt(b)}</small>`:''}</span><b>${s?fmt(s):'—'} ${saldo}</b>`;
+      const saldo = `<small class="${b-s<0?'neg':'pos'}">${b-s<0?'-':'+'}${fmt(Math.abs(b-s))}</small>`;
+      row.innerHTML = `<span>${label} <small>· de ${fmt(b)}</small></span><b>${s?fmt(s):'—'} ${saldo}</b>`;
       wl.appendChild(row);
     }
-    $('#weekTotal').textContent = fmt(wt) + (wb ? ' de ' + fmt(wb) : '');
+    $('#weekTotal').textContent = fmt(wt);
   }
 
   // ---- toast + undo
@@ -489,9 +631,65 @@
     $('#toast').classList.remove('show');
   });
 
+  // ---- informe de quincena
+  const qmodal = $('#qmodal'); let qCur = null;
+  function qData(q){
+    const [a,b] = qRange(q); const days = []; clearMemo();
+    for(let k = a; k <= b; k = addDays(k, 1)) days.push({k, base:baseOf(k), bud:budgetOf(k), spent:spentOn(k), ah:ahorroOn(k)});
+    const inQ = e => { const k = dayKey(e.ts); return k >= a && k <= b; };
+    const byMethod = {}; entries.filter(inQ).forEach(e => { const m = byMethod[e.methodName] || (byMethod[e.methodName] = {n:0, s:0, id:e.method}); m.n++; m.s += e.amount; });
+    const rep = entries.filter(e => inQ(e) && e.ahorro && !e.repuesto).reduce((s,e)=>s+e.amount,0);
+    return {a, b, days, byMethod, rep};
+  }
+  function renderQ(){
+    const d = qData(qCur), t = today();
+    const past = d.days.filter(x => x.k <= t);
+    const baseSum = past.reduce((s,x)=>s+x.base,0), spent = past.reduce((s,x)=>s+x.spent,0), ah = d.days.reduce((s,x)=>s+x.ah,0);
+    $('#qTitle').textContent = qLabel(qCur);
+    $('#qBase').textContent = fmt(baseSum); $('#qSpent').textContent = fmt(spent);
+    const diff = baseSum - spent; $('#qDiff').textContent = (diff>=0?'+':'') + fmt(diff); $('#qDiff').style.color = diff < 0 ? 'var(--danger)' : 'var(--ok)';
+    $('#qOver').textContent = past.filter(x => x.spent > x.bud).length + ' de ' + past.length;
+    $('#qAhorro').textContent = fmt(ah); $('#qRep').textContent = fmt(d.rep); $('#qRep').style.color = d.rep ? '#ff9f0a' : '';
+    const ml = $('#qMethods'); ml.innerHTML = '';
+    const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s);
+    if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en esta quincena</div>';
+    ms.forEach(([name, v]) => { const m = methods.find(x=>x.id===v.id); const r = document.createElement('div'); r.className='day';
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n}</small></span><b>${fmt(v.s)}</b>`; ml.appendChild(r); });
+    const dl = $('#qDays'); dl.innerHTML = '';
+    d.days.forEach(x => { const r = document.createElement('div'); r.className='day'; const future = x.k > t;
+      r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; dl.appendChild(r); });
+  }
+  $('#openQ').addEventListener('click', ()=>{ qCur = qOf(today()).id; renderQ(); qmodal.classList.add('open'); });
+  $('#qPrevBtn').addEventListener('click', ()=>{ qCur = qPrev(qCur); renderQ(); });
+  $('#qNextBtn').addEventListener('click', ()=>{ qCur = qNext(qCur); renderQ(); });
+  $('#qClose').addEventListener('click', ()=>qmodal.classList.remove('open'));
+  qmodal.addEventListener('click', ev=>{ if(ev.target===qmodal) qmodal.classList.remove('open'); });
+  $('#qCopy').addEventListener('click', async ()=>{
+    const d = qData(qCur), t = today();
+    const dn = k => { const s = dayLabel(k,{weekday:'long'}); return s.charAt(0).toUpperCase()+s.slice(1); };
+    const rows = d.days.filter(x => x.k <= t).map(x => [x.k.split('-').reverse().join('/'), dn(x.k), x.bud, x.spent, x.bud - x.spent, x.ah || ''].join('\t'));
+    const txt = rows.join('\n');
+    try{ await Promise.race([navigator.clipboard.writeText(txt), new Promise((_,rej)=>setTimeout(rej, 800))]); }
+    catch(_){ const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} document.body.removeChild(ta); }
+    toast('Copiadas ' + rows.length + ' filas · pégalas en el Excel');
+  });
+
+  // ---- banner de quincena
+  $('#qKeep').addEventListener('click', ()=>{ const uq = upcomingQ(); if(uq && !qConfirmed.includes(uq)) qConfirmed.push(uq); saveBudgets(); render(); toast('Listo, misma base para la quincena'); });
+  $('#qChange').addEventListener('click', ()=>{ $('#openSettings').click(); });
+
   // ---- settings
   const modal = $('#settings');
-  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); $('#geoToggle').checked = geoOn; modal.classList.add('open'); });
+  const fmtMoneyInput = el => el.addEventListener('input', () => { const d = digits(el.value).slice(0,12); el.value = d ? Number(d).toLocaleString('es-CO') : ''; });
+  fmtMoneyInput($('#baseWd')); fmtMoneyInput($('#baseWe'));
+  $('#saveBase').addEventListener('click', ()=>{
+    const wd = Number(digits($('#baseWd').value)) || 0, we = Number(digits($('#baseWe').value)) || 0;
+    if(!wd || !we){ toast('Pon los dos valores'); return; }
+    base = {wd, we};
+    const uq = upcomingQ(); if(uq && !qConfirmed.includes(uq)) qConfirmed.push(uq);
+    saveBudgets(); render(); modal.classList.remove('open'); toast('Base: ' + fmt(wd) + ' / ' + fmt(we));
+  });
+  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); $('#geoToggle').checked = geoOn; setMoney($('#baseWd'), base.wd); setMoney($('#baseWe'), base.we); modal.classList.add('open'); });
   $('#geoToggle').addEventListener('change', ev=>{ geoOn = ev.target.checked; try{ localStorage.setItem(LS_GEO, geoOn?'1':'0'); }catch(_){} if(geoOn && navigator.geolocation) navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:8000}); });
   $('#closeSettings').addEventListener('click', ()=>modal.classList.remove('open'));
   modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
@@ -528,14 +726,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') { budgets = d.budgets; saveBudgets(); } save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; saveBudgets(); save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{ if(confirm('¿Borrar todos los gastos? No se puede deshacer.')){ entries=[]; save(); render(); modal.classList.remove('open'); } });
