@@ -297,7 +297,8 @@
     <button class="btn glass" id="exportBtn">Exportar copia (JSON)</button>
     <button class="btn glass" id="importBtn">Importar copia</button>
     <input type="file" id="importFile" accept="application/json" style="display:none">
-    <button class="btn glass danger" id="wipeBtn">Borrar todos los gastos</button>
+    <button class="btn glass danger" id="wipeBtn">Reiniciar todo (empezar de cero)</button>
+    <p class="hint">Borra gastos, presupuestos fijados y la lista por reponer. Conserva tus métodos de pago y la base. Hoy arranca con la base del día.</p>
     <button class="btn glass" id="closeSettings" style="margin-top:18px">Cerrar</button>
   </div>
 </div>
@@ -736,7 +737,12 @@
     rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; saveBudgets(); save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
-  $('#wipeBtn').addEventListener('click', ()=>{ if(confirm('¿Borrar todos los gastos? No se puede deshacer.')){ entries=[]; save(); render(); modal.classList.remove('open'); } });
+  $('#wipeBtn').addEventListener('click', ()=>{
+    if(!confirm('¿Reiniciar todo? Se borran gastos, presupuestos fijados y por reponer. No se puede deshacer.')) return;
+    entries = []; budgets = {}; qConfirmed = []; lastAdded = null; clearMemo();
+    save(); saveBudgets(); render(); modal.classList.remove('open');
+    toast('Desde cero · hoy arrancas con ' + fmt(baseOf(today())));
+  });
 
   function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
