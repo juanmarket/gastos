@@ -37,16 +37,15 @@ Se editan en ⚙︎ (ajustes). Los que vienen por defecto:
 |---|---|
 | Nequi | `nequi://` |
 | Bancolombia | `shortcuts://run-shortcut?name=Bancolombia` |
-| Apple Wallet | `shortcuts://run-shortcut?name=Wallet` |
+| Tarjetas (Apple Wallet) | (vacío) |
 | Efectivo | (vacío, no abre nada) |
 
-Bancolombia y Wallet no tienen un enlace público que los abra, así que se usan **Atajos de iOS**. Hay que crearlos una vez:
+Bancolombia no tiene un enlace público que abra su app, así que se usa un **Atajo de iOS**. Hay que crearlo una vez:
 
-1. Abre la app **Atajos** → **+** → busca la acción **Abrir app** → elige **Bancolombia**.
+1. Abre la app **Atajos** → **+** → busca la acción **Abrir app** → elige **Mi Bancolombia**.
 2. Nómbralo exactamente **Bancolombia** y guarda.
-3. Repite con la app **Wallet**, nombrándolo **Wallet**.
 
-Para pagar con una tarjeta en el datáfono lo más rápido sigue siendo doble clic en el botón lateral del iPhone; el botón de la app te deja el gasto anotado y abre Wallet por si quieres elegir otra tarjeta.
+Las tarjetas de Apple Wallet no abren nada: la pantalla de pago (Face ID + acercar al lector) solo se abre con doble clic al botón lateral, y ninguna app puede dispararla. El botón de la tarjeta guarda el gasto y te avisa que ya puedes hacer el doble clic.
 
 ## Copia de seguridad
 
