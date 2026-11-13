@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Gastos</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<meta name="theme-color" content="#0f0f12">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<style>
+  :root{
+    --bg:#0b0b10; --text:#f4f4f8; --muted:#9a9aa8;
+    --glass:rgba(255,255,255,.08); --glass2:rgba(255,255,255,.14); --edge:rgba(255,255,255,.22); --edge2:rgba(255,255,255,.45);
+    --shadow:0 8px 24px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.3);
+    --accent:#4f8cff; --ok:#3ccf7a; --danger:#ff5c5c; --radius:22px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef0f6; --text:#121218; --muted:#636375;
+      --glass:rgba(255,255,255,.45); --glass2:rgba(255,255,255,.65); --edge:rgba(255,255,255,.85); --edge2:#fff;
+      --shadow:0 8px 24px rgba(30,40,80,.14), 0 1px 2px rgba(30,40,80,.10); }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro",Inter,system-ui,sans-serif;}
+  body{padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;min-height:100vh;position:relative}
+
+  /* color blobs behind the glass */
+  body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
+  body::before{width:60vw;height:60vw;max-width:340px;max-height:340px;left:-15vw;top:-10vh;background:radial-gradient(circle at 30% 30%,#ffd400,#e6007e 60%,transparent 75%)}
+  body::after{width:70vw;height:70vw;max-width:400px;max-height:400px;right:-25vw;bottom:5vh;background:radial-gradient(circle at 60% 60%,#4f8cff,#820ad1 55%,#3ccf7a 90%,transparent 100%)}
+  @media (prefers-color-scheme: light){ body::before,body::after{opacity:.35} }
+
+  .glass{
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(22px) saturate(180%); backdrop-filter:blur(22px) saturate(180%);
+    border:1px solid var(--edge);
+    box-shadow:var(--shadow), inset 0 1px 0 var(--edge2), inset 0 -1px 0 rgba(0,0,0,.08);
+    border-radius:var(--radius);
+  }
+
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  header h1{font-size:15px;font-weight:600;color:var(--muted);margin:0;letter-spacing:.3px;text-transform:uppercase}
+  .today{font-size:36px;font-weight:800;margin:0;letter-spacing:-.5px}
+  .iconbtn{color:var(--text);width:44px;height:44px;border-radius:50%;font-size:18px;display:grid;place-items:center;padding:0}
+  .iconbtn:active{transform:scale(.94)}
+
+  .amountbox{padding:18px 16px;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .amountbox .cur{font-size:28px;color:var(--muted);font-weight:600}
+  .amountbox input{flex:1;background:transparent;border:0;outline:0;color:var(--text);font-size:40px;font-weight:800;min-width:0;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .amountbox input::placeholder{color:var(--muted);opacity:.5}
+  .copy{background:var(--glass2);border:1px solid var(--edge);color:var(--text);padding:12px 16px;border-radius:999px;font-size:14px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18), inset 0 1px 0 var(--edge2);transition:.15s}
+  .copy.done{background:var(--ok);color:#fff;border-color:transparent}
+  .copy:active{transform:scale(.95)}
+
+  .note{width:100%;outline:0;color:var(--text);padding:14px 16px;font-size:16px;margin-bottom:14px}
+  .note::placeholder{color:var(--muted)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .method{color:var(--text);padding:16px 14px 14px;text-align:left;display:flex;flex-direction:column;gap:5px;min-height:78px;position:relative;overflow:hidden;transition:transform .12s, box-shadow .12s}
+  .method::before{content:"";position:absolute;inset:0;background:radial-gradient(120px 60px at 85% 15%,color-mix(in srgb,var(--c) 28%,transparent),transparent 70%);pointer-events:none}
+  .method .name{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .method .name::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);flex:none}
+  .method .sub{font-size:12px;color:var(--muted);padding-left:17px}
+  .method:active{transform:scale(.96);box-shadow:0 2px 8px rgba(0,0,0,.25), inset 0 1px 0 var(--edge2)}
+
+  .section{display:flex;justify-content:space-between;align-items:baseline;margin:18px 4px 8px}
+  .section h2{font-size:13px;color:var(--muted);font-weight:600;margin:0;text-transform:uppercase;letter-spacing:.3px}
+  .section span{font-size:13px;color:var(--muted)}
+  .list{overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--edge)}
+  .row:last-child{border-bottom:0}
+  .row .dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .row .info{flex:1;min-width:0}
+  .row .info b{display:block;font-size:15px}
+  .row .info small{color:var(--muted);font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .amt{font-weight:700;font-variant-numeric:tabular-nums}
+  .row .del{background:transparent;border:0;color:var(--muted);font-size:18px;padding:4px 6px}
+  .day{display:flex;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--edge)}
+  .day:last-child{border-bottom:0}
+  .day span:first-child{color:var(--muted)}
+  .day b{font-variant-numeric:tabular-nums}
+  .empty{padding:18px;color:var(--muted);text-align:center;font-size:14px}
+
+  .toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);padding:12px 16px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;display:flex;gap:14px;align-items:center;z-index:50;max-width:92vw;color:var(--text)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .toast button{background:var(--accent);color:#fff;border:0;padding:8px 14px;border-radius:999px;font-weight:700}
+
+  /* settings */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center;z-index:40}
+  .modal.open{display:flex}
+  .sheet{width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:18px 16px max(24px,env(safe-area-inset-bottom));border-bottom:0}
+  .sheet h2{margin:0 0 14px;font-size:20px}
+  .mrow{padding:12px;margin-bottom:10px;display:grid;grid-template-columns:36px 1fr 1fr auto;gap:8px;align-items:center;border-radius:16px}
+  .mrow input{background:rgba(127,127,140,.18);border:0;color:var(--text);padding:10px;border-radius:10px;font-size:14px;min-width:0;width:100%}
+  .mrow input[type=color]{padding:0;width:36px;height:36px;border-radius:10px;background:transparent}
+  .mrow .x{background:transparent;border:0;color:var(--danger);font-size:20px}
+  .btn{width:100%;color:var(--text);padding:14px;border-radius:999px;font-size:15px;font-weight:600;margin-top:8px}
+  .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+  .btn.danger{color:var(--danger)}
+  .hint{font-size:12px;color:var(--muted);margin:6px 2px 14px;line-height:1.4}
+  button.glass{cursor:pointer}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="dateLabel">Hoy</h1>
+    <p class="today" id="todayTotal">$0</p>
+  </div>
+  <button class="iconbtn glass" id="openSettings" title="Ajustes">⚙︎</button>
+</header>
+
+<div class="amountbox glass">
+  <span class="cur">$</span>
+  <input id="amount" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" autocomplete="off">
+  <button class="copy" id="copyBtn">Copiar</button>
+</div>
+<input class="note glass" id="note" type="text" placeholder="Nota (opcional): almuerzo, uber, mercado…" autocomplete="off">
+
+<div class="grid" id="methods"></div>
+
+<div class="section"><h2>Hoy</h2><span id="todayCount"></span></div>
+<div class="list glass" id="todayList"></div>
+
+<div class="section"><h2>Últimos 7 días</h2><span id="weekTotal"></span></div>
+<div class="list glass" id="weekList"></div>
+
+<div class="toast glass" id="toast"><span id="toastMsg"></span><button id="undoBtn" style="display:none">Deshacer</button></div>
+
+<div class="modal" id="settings">
+  <div class="sheet glass">
+    <h2>Métodos de pago</h2>
+    <p class="hint">Color · Nombre · Enlace que abre la app (déjalo vacío para no abrir nada). Ejemplos: <b>bancolombia://</b>, <b>nequi://</b>, <b>shoebox://</b> (Apple Wallet).</p>
+    <div id="methodEditor"></div>
+    <button class="btn glass" id="addMethod">+ Agregar método</button>
+    <button class="btn glass primary" id="saveMethods">Guardar</button>
+    <h2 style="margin-top:26px">Datos</h2>
+    <button class="btn glass" id="exportBtn">Exportar copia (JSON)</button>
+    <button class="btn glass" id="importBtn">Importar copia</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none">
+    <button class="btn glass danger" id="wipeBtn">Borrar todos los gastos</button>
+    <button class="btn glass" id="closeSettings" style="margin-top:18px">Cerrar</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const LS_M = 'gastos.methods', LS_E = 'gastos.entries';
+
+  const DEFAULT_METHODS = [
+    {id:'bancolombia', name:'Bancolombia', sub:'App', url:'bancolombia://', color:'#ffd400'},
+    {id:'nequi',       name:'Nequi',       sub:'App', url:'nequi://',       color:'#e6007e'},
+    {id:'efectivo',    name:'Efectivo',    sub:'',    url:'',               color:'#3ccf7a'},
+    {id:'aw-bcol-tc',  name:'Bancolombia TC', sub:'Apple Wallet', url:'shoebox://', color:'#ffd400'},
+    {id:'aw-bcol-db',  name:'Bancolombia Débito', sub:'Apple Wallet', url:'shoebox://', color:'#ffb300'},
+    {id:'aw-rappi-tc', name:'Rappi Crédito', sub:'Apple Wallet', url:'shoebox://', color:'#ff441f'},
+    {id:'aw-rappi-db', name:'Rappi Débito', sub:'Apple Wallet', url:'shoebox://', color:'#ff7a5c'},
+    {id:'aw-nu',       name:'Nu',           sub:'Apple Wallet', url:'shoebox://', color:'#820ad1'},
+  ];
+
+  let methods = load(LS_M, DEFAULT_METHODS);
+  let entries = load(LS_E, []);
+  let lastAdded = null, toastTimer;
+
+  function load(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : d; }catch(e){ return d; } }
+  function save(){ try{ localStorage.setItem(LS_M, JSON.stringify(methods)); localStorage.setItem(LS_E, JSON.stringify(entries)); }catch(e){ console.warn('No se pudo guardar', e); } }
+
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const dayKey = d => { const x = new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+  const today = () => dayKey(Date.now());
+  const digits = s => (s||'').replace(/\D/g,'');
+
+  // ---- amount input formatting
+  const amountEl = $('#amount');
+  amountEl.addEventListener('input', () => {
+    const d = digits(amountEl.value).slice(0,12);
+    amountEl.value = d ? Number(d).toLocaleString('es-CO') : '';
+  });
+  const getAmount = () => Number(digits(amountEl.value)) || 0;
+
+  // ---- copy
+  async function copyAmount(){
+    const v = digits(amountEl.value);
+    if(!v){ toast('Escribe un valor primero'); return false; }
+    try{
+      await Promise.race([navigator.clipboard.writeText(v), new Promise((_,rej)=>setTimeout(rej, 800))]);
+    }catch(e){
+      const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select();
+      try{ document.execCommand('copy'); }catch(_){}
+      document.body.removeChild(t);
+    }
+    const b = $('#copyBtn'); b.textContent = 'Copiado'; b.classList.add('done');
+    setTimeout(()=>{ b.textContent='Copiar'; b.classList.remove('done'); }, 1400);
+    return true;
+  }
+  $('#copyBtn').addEventListener('click', copyAmount);
+
+  // ---- methods grid
+  function renderMethods(){
+    const g = $('#methods'); g.innerHTML = '';
+    methods.forEach(m => {
+      const b = document.createElement('button');
+      b.className = 'method glass'; b.style.setProperty('--c', m.color || '#666');
+      b.innerHTML = `<span class="name">${esc(m.name)}</span><span class="sub">${esc(m.sub || (m.url ? 'Abre app' : ''))}</span>`;
+      b.addEventListener('click', () => pay(m));
+      g.appendChild(b);
+    });
+  }
+
+  async function pay(m){
+    const amt = getAmount();
+    if(!amt){ toast('Escribe un valor primero'); amountEl.focus(); return; }
+    const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: amt, method: m.id, methodName: m.name, note: $('#note').value.trim() };
+    entries.unshift(e); lastAdded = e; save();
+    copyAmount().catch(()=>{});
+    amountEl.value=''; $('#note').value='';
+    render();
+    toast(`${fmt(amt)} · ${m.name}`, true);
+    if(m.url){ setTimeout(()=>{ window.location.href = m.url; }, 250); }
+  }
+
+  // ---- lists
+  function render(){
+    const t = today();
+    const todays = entries.filter(e => dayKey(e.ts) === t);
+    const sum = a => a.reduce((s,e)=>s+e.amount,0);
+    $('#todayTotal').textContent = fmt(sum(todays));
+    $('#todayCount').textContent = todays.length ? todays.length + (todays.length===1?' gasto':' gastos') : '';
+    $('#dateLabel').textContent = new Date().toLocaleDateString('es-CO',{weekday:'long', day:'numeric', month:'short'});
+
+    const tl = $('#todayList'); tl.innerHTML='';
+    if(!todays.length){ tl.innerHTML = '<div class="empty">Nada todavía. Escribe un valor y toca con qué pagaste.</div>'; }
+    todays.forEach(e => {
+      const m = methods.find(x=>x.id===e.method);
+      const r = document.createElement('div'); r.className='row';
+      const time = new Date(e.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+      r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
+        <div class="info"><b>${esc(e.methodName)}</b><small>${time}${e.note?' · '+esc(e.note):''}</small></div>
+        <span class="amt">${fmt(e.amount)}</span>
+        <button class="del" title="Borrar">×</button>`;
+      r.querySelector('.del').addEventListener('click', ()=>{ entries = entries.filter(x=>x.id!==e.id); save(); render(); });
+      tl.appendChild(r);
+    });
+
+    const wl = $('#weekList'); wl.innerHTML=''; let wt=0;
+    for(let i=0;i<7;i++){
+      const d = new Date(); d.setDate(d.getDate()-i); const k = dayKey(d);
+      const s = sum(entries.filter(e=>dayKey(e.ts)===k)); wt += s;
+      const row = document.createElement('div'); row.className='day';
+      const label = i===0?'Hoy':i===1?'Ayer':d.toLocaleDateString('es-CO',{weekday:'short', day:'numeric'});
+      row.innerHTML = `<span>${label}</span><b>${s?fmt(s):'—'}</b>`;
+      wl.appendChild(row);
+    }
+    $('#weekTotal').textContent = fmt(wt);
+  }
+
+  // ---- toast + undo
+  function toast(msg, undo){
+    $('#toastMsg').textContent = msg;
+    $('#undoBtn').style.display = undo ? '' : 'none';
+    const t = $('#toast'); t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), undo?6000:1800);
+  }
+  $('#undoBtn').addEventListener('click', ()=>{
+    if(lastAdded){ entries = entries.filter(x=>x.id!==lastAdded.id); lastAdded=null; save(); render(); }
+    $('#toast').classList.remove('show');
+  });
+
+  // ---- settings
+  const modal = $('#settings');
+  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); modal.classList.add('open'); });
+  $('#closeSettings').addEventListener('click', ()=>modal.classList.remove('open'));
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
+
+  function renderEditor(){
+    const ed = $('#methodEditor'); ed.innerHTML='';
+    methods.forEach((m,i)=>{
+      const r = document.createElement('div'); r.className='mrow glass';
+      r.innerHTML = `<input type="color" value="${m.color||'#666666'}">
+        <input type="text" placeholder="Nombre" value="${esc(m.name)}">
+        <input type="text" placeholder="Enlace (bancolombia://)" value="${esc(m.url||'')}">
+        <button class="x" title="Quitar">×</button>`;
+      r.querySelector('.x').addEventListener('click', ()=>{ r.remove(); });
+      r.dataset.id = m.id;
+      ed.appendChild(r);
+    });
+  }
+  $('#addMethod').addEventListener('click', ()=>{
+    const r = document.createElement('div'); r.className='mrow glass'; r.dataset.id = 'm'+Date.now();
+    r.innerHTML = `<input type="color" value="#4f8cff"><input type="text" placeholder="Nombre"><input type="text" placeholder="Enlace (opcional)"><button class="x">×</button>`;
+    r.querySelector('.x').addEventListener('click', ()=>r.remove());
+    $('#methodEditor').appendChild(r);
+  });
+  $('#saveMethods').addEventListener('click', ()=>{
+    const rows = [...$('#methodEditor').querySelectorAll('.mrow')];
+    const next = rows.map(r=>{
+      const [c,n,u] = r.querySelectorAll('input');
+      const url = u.value.trim();
+      return { id:r.dataset.id, name:n.value.trim()||'Sin nombre', url, color:c.value, sub: url.startsWith('shoebox')?'Apple Wallet':(url?'App':'') };
+    });
+    if(next.length){ methods = next; save(); renderMethods(); render(); }
+    modal.classList.remove('open');
+  });
+
+  $('#exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify({methods, entries}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
+  });
+  $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
+  $('#importFile').addEventListener('change', e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.readAsText(f);
+  });
+  $('#wipeBtn').addEventListener('click', ()=>{ if(confirm('¿Borrar todos los gastos? No se puede deshacer.')){ entries=[]; save(); render(); modal.classList.remove('open'); } });
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
+  renderMethods(); render();
+})();
+</script>
+</body>
+</html>
