@@ -41,6 +41,33 @@ Las quincenas van del 1 al 15 y del 16 a fin de mes. Desde el 14 y desde el 29 (
 
 El botón **Quincena** abre el informe de la quincena actual (y las anteriores con ‹ ›): presupuesto base vs gastado, diferencia, días que te pasaste, total del ahorro y por reponer, gastado por método, y el día a día. **Copiar tabla para el Excel** copia filas con Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.
 
+## Deudas y préstamos
+
+Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: quién, cuánto, si me deben o debo, y una nota. Arriba sale el total "me deben $X · debo $Y". El check marca pagada; "ver pagadas" muestra el historial. Tocar una la edita.
+
+## Anotar con Siri (Atajo)
+
+La app acepta una frase dictada por URL y la entiende sola:
+
+```
+https://juanmarket.github.io/gastos/?say=gasté 12 mil en nequi almuerzo
+```
+
+Entiende "12 mil", "12k", "45.500", "1.5 millones"; el método por su nombre (nequi, bancolombia tc, rappi débito, efectivo…); "del ahorro"; y el resto queda como nota. Si no reconoce el método, abre la app con el valor y la nota puestos para que solo toques el método.
+
+Crear el Atajo una vez, en la app **Atajos**:
+
+1. **+** → nombre **Anotar gasto**.
+2. Acción **Dictar texto** (idioma español).
+3. Acción **URL**: `https://juanmarket.github.io/gastos/?say=` y al final inserta la variable **Texto dictado**.
+4. Acción **Abrir URL**.
+
+Luego: "Oye Siri, anotar gasto" → dictas "gasté 12 mil en Nequi, almuerzo" → queda anotado.
+
+También sirve el formato explícito: `?add=12000&m=nequi&n=almuerzo&ahorro=1`.
+
+Importante: el Atajo debe abrir la app de la pantalla de inicio, no Safari, porque cada una guarda sus datos aparte. Con el `manifest.json` iOS lo hace por defecto; si al correr el Atajo se abre Safari, vuelve a agregar la app a la pantalla de inicio desde la URL actual.
+
 ## Detalle de un gasto
 
 Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí.

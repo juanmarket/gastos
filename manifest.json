@@ -1,0 +1,10 @@
+{
+  "name": "Gastos",
+  "short_name": "Gastos",
+  "start_url": "/gastos/",
+  "scope": "/gastos/",
+  "display": "standalone",
+  "background_color": "#0b0b10",
+  "theme_color": "#0b0b10",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}

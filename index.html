@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gastos">
 <meta name="theme-color" content="#0f0f12">
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
 <style>
@@ -164,6 +165,14 @@
   .baserow{display:flex;gap:8px} .baserow>div{flex:1;min-width:0}
   .baserow label{display:block;font-size:12px;color:var(--muted);margin:0 4px 6px}
   .hbtns .pill{padding:0 12px;font-size:13px;height:34px}
+  .link{color:var(--accent);text-decoration:none;font-weight:700}
+  .seg{display:flex;padding:4px;gap:4px;border-radius:999px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px;border-radius:999px;font-weight:700;font-size:14px}
+  .seg button.on{background:var(--glass2);color:var(--text);box-shadow:inset 0 1px 0 var(--edge2)}
+  .seg button#dbDebo.on{color:var(--danger)} .seg button#dbMeDeben.on{color:var(--ok)}
+  .row .amt.pos{color:var(--ok)} .row .amt.neg{color:var(--danger)}
+  .row.paid{opacity:.5} .row.paid .info b{text-decoration:line-through}
+  .cuadre .note{margin-bottom:0}
   .brow{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .brow>span{flex:1;min-width:0}
   header{align-items:flex-start}
@@ -212,6 +221,10 @@
 <div class="section" id="repSection" style="display:none"><h2>Por reponer al ahorro</h2><span id="repTotal"></span></div>
 <div class="list glass" id="repList" style="display:none"></div>
 
+<div class="section"><h2>Deudas</h2><span><span id="debtTotals"></span> <a href="#" id="addDebt" class="link">+ agregar</a></span></div>
+<div class="list glass" id="debtList"></div>
+<p class="hint" style="text-align:center"><a href="#" id="toggleDebtPaid" class="link">ver pagadas</a></p>
+
 <div class="section"><h2>Últimos 7 días</h2><span id="weekTotal"></span></div>
 <div class="list glass" id="weekList"></div>
 
@@ -250,6 +263,23 @@
     <button class="btn glass primary" id="dSave">Guardar</button>
     <button class="btn glass danger" id="dDelete">Borrar este gasto</button>
     <button class="btn glass" id="dClose">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal" id="debtModal">
+  <div class="sheet glass cuadre">
+    <h2 id="dbTitle">Deuda o préstamo</h2>
+    <div class="seg glass"><button id="dbMeDeben" class="on">Me deben</button><button id="dbDebo">Debo</button></div>
+    <label>Quién</label>
+    <input class="note glass" id="dbWho" type="text" placeholder="Nombre" autocomplete="off">
+    <label>Cuánto</label>
+    <div class="amountbox glass small"><span class="cur">$</span><input id="dbAmount" type="text" inputmode="numeric" placeholder="0"></div>
+    <label>Nota</label>
+    <input class="note glass" id="dbNote" type="text" placeholder="Por qué, cuándo paga…" autocomplete="off">
+    <button class="btn glass primary" id="dbSave">Guardar</button>
+    <button class="btn glass" id="dbPaid" style="display:none">Marcar como pagada</button>
+    <button class="btn glass danger" id="dbDelete" style="display:none">Borrar</button>
+    <button class="btn glass" id="dbClose">Cerrar</button>
   </div>
 </div>
 
@@ -632,6 +662,92 @@
     $('#toast').classList.remove('show');
   });
 
+  // ---- deudas y préstamos (aparte del presupuesto diario)
+  const LS_D = 'gastos.debts';
+  let debts = load(LS_D, []); let showPaid = false, debtId = null, dbType = 'me';
+  const saveDebts = () => { try{ localStorage.setItem(LS_D, JSON.stringify(debts)); }catch(_){} };
+  const dbmodal = $('#debtModal');
+  fmtInput($('#dbAmount'));
+  function renderDebts(){
+    const open = debts.filter(d => !d.paid);
+    const me = open.filter(d=>d.type==='me').reduce((s,d)=>s+d.amount,0), yo = open.filter(d=>d.type==='yo').reduce((s,d)=>s+d.amount,0);
+    $('#debtTotals').textContent = (me ? 'me deben ' + fmt(me) : '') + (me && yo ? ' · ' : '') + (yo ? 'debo ' + fmt(yo) : '');
+    const list = showPaid ? debts : open;
+    const dl = $('#debtList'); dl.innerHTML = '';
+    if(!list.length) dl.innerHTML = '<div class="empty">Sin deudas pendientes</div>';
+    list.slice().sort((a,b)=>(a.paid?1:0)-(b.paid?1:0) || b.ts-a.ts).forEach(d => {
+      const r = document.createElement('div'); r.className = 'row' + (d.paid?' paid':'');
+      r.innerHTML = `<input type="checkbox" class="chk" ${d.paid?'checked':''} title="Pagada">
+        <div class="info"><b>${esc(d.who)}</b><small>${d.type==='me'?'me debe':'le debo'} · ${dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})}${d.note?' · '+esc(d.note):''}${d.paid?' · pagada '+dayLabel(dayKey(d.paidTs||d.ts),{day:'numeric', month:'short'}):''}</small></div>
+        <span class="amt ${d.type==='me'?'pos':'neg'}">${d.type==='me'?'+':'-'}${fmt(d.amount)}</span>`;
+      r.querySelector('.chk').addEventListener('click', ev=>{ ev.stopPropagation(); d.paid = ev.target.checked; d.paidTs = d.paid ? Date.now() : undefined; saveDebts(); renderDebts(); toast(d.paid ? 'Pagada · ' + d.who : 'Pendiente de nuevo'); });
+      r.addEventListener('click', ()=>openDebt(d));
+      dl.appendChild(r);
+    });
+    $('#toggleDebtPaid').textContent = showPaid ? 'ocultar pagadas' : 'ver pagadas';
+    $('#toggleDebtPaid').style.display = debts.some(d=>d.paid) ? '' : 'none';
+  }
+  function setDbType(t){ dbType = t; $('#dbMeDeben').classList.toggle('on', t==='me'); $('#dbDebo').classList.toggle('on', t==='yo'); }
+  $('#dbMeDeben').addEventListener('click', ()=>setDbType('me')); $('#dbDebo').addEventListener('click', ()=>setDbType('yo'));
+  function openDebt(d){
+    debtId = d ? d.id : null;
+    $('#dbTitle').textContent = d ? (d.type==='me' ? d.who + ' me debe' : 'Le debo a ' + d.who) : 'Nueva deuda o préstamo';
+    setDbType(d ? d.type : 'me');
+    $('#dbWho').value = d ? d.who : ''; setMoney($('#dbAmount'), d ? d.amount : 0); $('#dbNote').value = d ? (d.note||'') : '';
+    $('#dbPaid').style.display = d && !d.paid ? '' : 'none'; $('#dbDelete').style.display = d ? '' : 'none';
+    dbmodal.classList.add('open'); if(!d) setTimeout(()=>$('#dbWho').focus(), 50);
+  }
+  $('#addDebt').addEventListener('click', ev=>{ ev.preventDefault(); openDebt(null); });
+  $('#toggleDebtPaid').addEventListener('click', ev=>{ ev.preventDefault(); showPaid = !showPaid; renderDebts(); });
+  $('#dbSave').addEventListener('click', ()=>{
+    const who = $('#dbWho').value.trim(), amount = Number(digits($('#dbAmount').value)) || 0;
+    if(!who || !amount){ toast('Falta el nombre o el valor'); return; }
+    const d = debts.find(x=>x.id===debtId);
+    if(d){ Object.assign(d, {who, amount, note:$('#dbNote').value.trim(), type:dbType}); }
+    else debts.unshift({id:'d'+Date.now(), ts:Date.now(), who, amount, note:$('#dbNote').value.trim(), type:dbType, paid:false});
+    saveDebts(); renderDebts(); dbmodal.classList.remove('open');
+  });
+  $('#dbPaid').addEventListener('click', ()=>{ const d = debts.find(x=>x.id===debtId); if(d){ d.paid = true; d.paidTs = Date.now(); saveDebts(); renderDebts(); } dbmodal.classList.remove('open'); });
+  $('#dbDelete').addEventListener('click', ()=>{ if(!confirm('¿Borrar esta deuda?')) return; debts = debts.filter(x=>x.id!==debtId); saveDebts(); renderDebts(); dbmodal.classList.remove('open'); });
+  $('#dbClose').addEventListener('click', ()=>dbmodal.classList.remove('open'));
+  dbmodal.addEventListener('click', ev=>{ if(ev.target===dbmodal) dbmodal.classList.remove('open'); });
+
+  // ---- entrada por URL (Atajo de Siri): ?say=gasté 12 mil en nequi almuerzo  |  ?add=12000&m=nequi&n=almuerzo&ahorro=1
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  function parseSay(text){
+    let t = norm(text).replace(/[¿?¡!,.;:]+(\s|$)/g, ' ');
+    let amount = 0, m;
+    if((m = t.match(/(\d+(?:[.,]\d+)?)\s*(millones|millon|mill)\b/))) amount = Math.round(parseFloat(m[1].replace(',','.'))*1e6);
+    else if((m = t.match(/(\d+(?:[.,]\d+)?)\s*(mil|k|lucas|luca)\b/))) amount = Math.round(parseFloat(m[1].replace(',','.'))*1000);
+    else if((m = t.match(/(\d{1,3}(?:[.,]\d{3})+|\d+)/))) amount = Number(m[1].replace(/[.,]/g,''));
+    if(m) t = t.replace(m[0], ' ');
+    let best = null, bestN = 0;
+    methods.forEach(mm => { const toks = norm(mm.name).split(/\s+/).filter(Boolean); if(toks.length && toks.every(k => new RegExp('\\b'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(t)) && toks.length > bestN){ best = mm; bestN = toks.length; } });
+    if(best) norm(best.name).split(/\s+/).forEach(k => { t = t.replace(new RegExp('\\b'+k+'\\b'), ' '); });
+    const ahorro = /\bahorro\b/.test(t); if(ahorro) t = t.replace(/\b(del|de el|de)?\s*ahorro\b/, ' ');
+    const note = t.replace(/\b(gaste|gasté|pague|pago|pagar|anota|anotar|registra|con|en|el|la|los|las|de|del|un|una|por|para|y|a|al|pesos|mil)\b/g, ' ').replace(/\s+/g,' ').trim();
+    return {amount, method: best, note: note.charAt(0).toUpperCase() + note.slice(1), ahorro};
+  }
+  function handleUrl(){
+    const p = new URLSearchParams(location.search);
+    if(!p.has('say') && !p.has('add')) return;
+    let r;
+    if(p.has('say')) r = parseSay(p.get('say'));
+    else { const q = norm(p.get('m')); r = { amount: Number(digits(p.get('add')))||0, method: methods.find(x => x.id===p.get('m') || norm(x.name)===q) || null, note: p.get('n')||'', ahorro: p.get('ahorro')==='1' }; }
+    history.replaceState(null, '', location.pathname);
+    if(r.amount && r.method){
+      const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: r.amount, method: r.method.id, methodName: r.method.name, note: r.note, src:'siri' };
+      if(r.ahorro){ e.ahorro = true; e.repuesto = false; }
+      entries.unshift(e); lastAdded = e; save(); render(); locate(e);
+      toast(`Anotado ${fmt(r.amount)} · ${r.method.name}${r.note?' · '+r.note:''}`, true);
+    } else {
+      if(r.amount) amountEl.value = r.amount.toLocaleString('es-CO');
+      if(r.note) $('#note').value = r.note;
+      if(r.ahorro) setAhorroMode(true);
+      toast(r.amount ? 'No entendí con qué pagaste · toca el método' : 'No entendí el valor · escríbelo');
+    }
+  }
+
   // ---- informe de quincena
   const qmodal = $('#qmodal'); let qCur = null;
   function qData(q){
@@ -727,14 +843,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; saveBudgets(); save(); renderMethods(); render(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{
@@ -748,7 +864,7 @@
 
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
   setInterval(render, 60000); // por si pasa la medianoche con la app abierta
-  renderMethods(); render();
+  renderMethods(); render(); renderDebts(); handleUrl();
 })();
 </script>
 </body>
