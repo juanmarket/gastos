@@ -712,42 +712,6 @@
   $('#dbClose').addEventListener('click', ()=>dbmodal.classList.remove('open'));
   dbmodal.addEventListener('click', ev=>{ if(ev.target===dbmodal) dbmodal.classList.remove('open'); });
 
-  // ---- entrada por URL (Atajo de Siri): ?say=gasté 12 mil en nequi almuerzo  |  ?add=12000&m=nequi&n=almuerzo&ahorro=1
-  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  function parseSay(text){
-    let t = norm(text).replace(/[¿?¡!,.;:]+(\s|$)/g, ' ');
-    let amount = 0, m;
-    if((m = t.match(/(\d+(?:[.,]\d+)?)\s*(millones|millon|mill)\b/))) amount = Math.round(parseFloat(m[1].replace(',','.'))*1e6);
-    else if((m = t.match(/(\d+(?:[.,]\d+)?)\s*(mil|k|lucas|luca)\b/))) amount = Math.round(parseFloat(m[1].replace(',','.'))*1000);
-    else if((m = t.match(/(\d{1,3}(?:[.,]\d{3})+|\d+)/))) amount = Number(m[1].replace(/[.,]/g,''));
-    if(m) t = t.replace(m[0], ' ');
-    let best = null, bestN = 0;
-    methods.forEach(mm => { const toks = norm(mm.name).split(/\s+/).filter(Boolean); if(toks.length && toks.every(k => new RegExp('\\b'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(t)) && toks.length > bestN){ best = mm; bestN = toks.length; } });
-    if(best) norm(best.name).split(/\s+/).forEach(k => { t = t.replace(new RegExp('\\b'+k+'\\b'), ' '); });
-    const ahorro = /\bahorro\b/.test(t); if(ahorro) t = t.replace(/\b(del|de el|de)?\s*ahorro\b/, ' ');
-    const note = t.replace(/\b(gaste|gasté|pague|pago|pagar|anota|anotar|registra|con|en|el|la|los|las|de|del|un|una|por|para|y|a|al|pesos|mil)\b/g, ' ').replace(/\s+/g,' ').trim();
-    return {amount, method: best, note: note.charAt(0).toUpperCase() + note.slice(1), ahorro};
-  }
-  function handleUrl(){
-    const p = new URLSearchParams(location.search);
-    if(!p.has('say') && !p.has('add')) return;
-    let r;
-    if(p.has('say')) r = parseSay(p.get('say'));
-    else { const q = norm(p.get('m')); r = { amount: Number(digits(p.get('add')))||0, method: methods.find(x => x.id===p.get('m') || norm(x.name)===q) || null, note: p.get('n')||'', ahorro: p.get('ahorro')==='1' }; }
-    history.replaceState(null, '', location.pathname);
-    if(r.amount && r.method){
-      const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: r.amount, method: r.method.id, methodName: r.method.name, note: r.note, src:'siri' };
-      if(r.ahorro){ e.ahorro = true; e.repuesto = false; }
-      entries.unshift(e); lastAdded = e; save(); render(); locate(e);
-      toast(`Anotado ${fmt(r.amount)} · ${r.method.name}${r.note?' · '+r.note:''}`, true);
-    } else {
-      if(r.amount) amountEl.value = r.amount.toLocaleString('es-CO');
-      if(r.note) $('#note').value = r.note;
-      if(r.ahorro) setAhorroMode(true);
-      toast(r.amount ? 'No entendí con qué pagaste · toca el método' : 'No entendí el valor · escríbelo');
-    }
-  }
-
   // ---- informe de quincena
   const qmodal = $('#qmodal'); let qCur = null;
   function qData(q){
@@ -864,7 +828,7 @@
 
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
   setInterval(render, 60000); // por si pasa la medianoche con la app abierta
-  renderMethods(); render(); renderDebts(); handleUrl();
+  renderMethods(); render(); renderDebts();
 })();
 </script>
 </body>
