@@ -13,7 +13,7 @@ Si te equivocaste, el aviso de abajo tiene **Deshacer** por unos segundos. Tambi
 ## Subirla a GitHub Pages
 
 1. Crea un repo en GitHub (por ejemplo `gastos`).
-2. Sube `index.html`, `icon.png` y este `README.md` a la rama `main`.
+2. Sube `index.html`, `manifest.json`, los `icon*.png` y este `README.md` a la rama `main`.
 3. En el repo: **Settings → Pages → Source: Deploy from a branch → main / (root)** → Save.
 4. En un minuto queda en `https://TU_USUARIO.github.io/gastos/`.
 
