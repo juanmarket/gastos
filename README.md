@@ -6,7 +6,8 @@ App web mínima para anotar qué gasté hoy y con qué pagué. Un solo archivo, 
 
 1. Escribe el valor.
 2. Toca el método con el que vas a pagar (Bancolombia, Nequi, Efectivo, o una tarjeta de Apple Wallet).
-3. La app guarda el gasto, **copia el valor al portapapeles** y abre la app correspondiente. Pegas el número y listo.
+3. Si no escribiste en qué fue, la app te lo pregunta en una cajita (es obligatorio, para que después sepas en qué se fue la plata).
+4. La app guarda el gasto, **copia el valor al portapapeles** y abre la app correspondiente. Pegas el número y listo.
 
 Si te equivocaste, el aviso de abajo tiene **Deshacer** por unos segundos. También puedes borrar cualquier gasto del día con la ×.
 

@@ -131,7 +131,7 @@
 
   /* detail */
   .detail .big{font-size:40px;font-weight:800;letter-spacing:-.5px;margin:4px 0 2px;font-variant-numeric:tabular-nums}
-  .detail .meta{color:var(--muted);font-size:14px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .detail .meta,.sheet .meta{color:var(--muted);font-size:14px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
   .detail .meta .dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 8px currentColor}
   .detail label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
   .detail textarea{width:100%;min-height:110px;resize:vertical;outline:0;color:var(--text);padding:14px 16px;font-size:16px;font-family:inherit;line-height:1.4}
@@ -209,7 +209,7 @@
   <button class="copy" id="copyBtn">Copiar</button>
 </div>
 <div class="noterow">
-  <input class="note glass" id="note" type="text" placeholder="Nota (opcional): almuerzo, uber, mercado…" autocomplete="off">
+  <input class="note glass" id="note" type="text" placeholder="¿En qué? almuerzo, uber, mercado…" autocomplete="off">
   <button class="chip glass" id="ahorroChip" title="Este gasto sale del ahorro y hay que reponerlo">Del ahorro</button>
 </div>
 
@@ -246,6 +246,16 @@
     <p class="hint" id="cTomorrowHint"></p>
     <button class="btn glass primary" id="cSave">Guardar</button>
     <button class="btn glass" id="cClose">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal" id="askNote">
+  <div class="sheet glass">
+    <h2>¿En qué lo gastaste?</h2>
+    <p class="meta" id="anInfo"></p>
+    <input class="note glass" id="anNote" type="text" placeholder="almuerzo, uber, mercado…" autocomplete="off" enterkeyhint="done">
+    <button class="btn glass primary" id="anOk">Seguir</button>
+    <button class="btn glass" id="anCancel">Cancelar</button>
   </div>
 </div>
 
@@ -459,7 +469,9 @@
   async function pay(m){
     const amt = getAmount();
     if(!amt){ toast('Escribe un valor primero'); amountEl.focus(); return; }
-    const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: amt, method: m.id, methodName: m.name, note: $('#note').value.trim() };
+    const note = $('#note').value.trim();
+    if(!note){ askNote(m, amt); return; }
+    const e = { id: Date.now()+''+Math.random().toString(36).slice(2,6), ts: Date.now(), amount: amt, method: m.id, methodName: m.name, note };
     if(ahorroMode){ e.ahorro = true; e.repuesto = false; }
     entries.unshift(e); lastAdded = e; save();
     copyAmount().catch(()=>{});
@@ -470,6 +482,26 @@
     locate(e);
     if(m.url){ setTimeout(()=>{ window.location.href = m.url; }, 250); }
   }
+
+  // ---- motivo obligatorio: si la nota está vacía, se pide antes de seguir
+  const anModal = $('#askNote'); let anMethod = null;
+  function askNote(m, amt){
+    anMethod = m;
+    $('#anInfo').innerHTML = `<span class="dot" style="background:${m.color};color:${m.color}"></span><b>${fmt(amt)}</b><span>·</span><span>${m.name}</span>`;
+    $('#anNote').value = '';
+    anModal.classList.add('open');
+    setTimeout(()=>$('#anNote').focus(), 50);
+  }
+  function anConfirm(){
+    const v = $('#anNote').value.trim();
+    if(!v){ $('#anNote').focus(); toast('Escribe en qué lo gastaste'); return; }
+    $('#note').value = v; anModal.classList.remove('open');
+    const m = anMethod; anMethod = null; pay(m);
+  }
+  $('#anOk').addEventListener('click', anConfirm);
+  $('#anNote').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); anConfirm(); } });
+  $('#anCancel').addEventListener('click', ()=>{ anModal.classList.remove('open'); anMethod = null; });
+  anModal.addEventListener('click', ev=>{ if(ev.target===anModal){ anModal.classList.remove('open'); anMethod = null; } });
 
   // ---- "Del ahorro": se activa solo para el próximo gasto
   let ahorroMode = false;
