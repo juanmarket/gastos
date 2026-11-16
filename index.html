@@ -121,6 +121,8 @@
   .amountbox.small{padding:10px 14px;margin-bottom:0}
   .amountbox.small input{font-size:28px}
   .amountbox.small .cur{font-size:20px}
+  .lbl{display:block;font-size:12px;color:var(--muted);margin:14px 2px 6px;text-transform:uppercase;letter-spacing:.3px}
+  input[type=date]{font-family:inherit;-webkit-appearance:none;appearance:none}
   .kv{display:flex;margin-top:10px}
   .kv div{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
   .kv div+div{border-left:1px solid var(--edge)}
@@ -325,6 +327,16 @@
       <div><label>Sábado y domingo</label><div class="amountbox glass small"><span class="cur">$</span><input id="baseWe" type="text" inputmode="numeric"></div></div>
     </div>
     <button class="btn glass primary" id="saveBase">Guardar base</button>
+    <h2 style="margin-top:26px">Quincena</h2>
+    <p class="hint">La quincena va del día que te pagan hasta el día antes del siguiente pago. Si un mes te pagan otro día, cambia abajo cuándo empezó la actual.</p>
+    <div class="baserow">
+      <div><label>Primer pago (día)</label><div class="amountbox glass small"><input id="payD1" type="text" inputmode="numeric" maxlength="2"></div></div>
+      <div><label>Segundo pago (día)</label><div class="amountbox glass small"><input id="payD2" type="text" inputmode="numeric" maxlength="2"></div></div>
+    </div>
+    <label class="lbl">La quincena actual empezó el</label>
+    <div class="amountbox glass small"><input id="payStart" type="date"></div>
+    <p class="hint" id="payPreview"></p>
+    <button class="btn glass primary" id="savePay">Guardar quincena</button>
     <h2 style="margin-top:26px">Métodos de pago</h2>
     <p class="hint">Color · Nombre · Enlace que abre la app (vacío = no abre nada). Nequi: <b>nequi://</b>. Para apps sin enlace propio (Bancolombia, Wallet) crea un Atajo en la app Atajos llamado igual, con la acción "Abrir app", y usa <b>shortcuts://run-shortcut?name=Bancolombia</b>.</p>
     <div id="methodEditor"></div>
@@ -421,13 +433,20 @@
 
   // ---- quincenas: 1–15 y 16–fin de mes. Pagan el 15 y el 30/31 (a veces antes si cae en fin de semana).
   const monthDays = k => { const [y,m] = k.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
-  const qOf = k => { const [y,m,d] = k.split('-').map(Number); return {id:`${y}-${String(m).padStart(2,'0')}-${d<=15?1:2}`, y, m, half:d<=15?1:2}; };
-  const qRange = q => { const [y,m,h] = q.split('-').map(Number); const mm = String(m).padStart(2,'0'); const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return h===1 ? [`${y}-${mm}-01`, `${y}-${mm}-15`] : [`${y}-${mm}-16`, `${y}-${mm}-${last}`]; };
-  const qNext = q => { const [y,m,h] = q.split('-').map(Number); return h===1 ? `${y}-${String(m).padStart(2,'0')}-2` : `${m===12?y+1:y}-${String(m===12?1:m+1).padStart(2,'0')}-1`; };
-  const qPrev = q => { const [y,m,h] = q.split('-').map(Number); return h===2 ? `${y}-${String(m).padStart(2,'0')}-1` : `${m===1?y-1:y}-${String(m===1?12:m-1).padStart(2,'0')}-2`; };
-  const qLabel = q => { const [a,b] = qRange(q); return dayLabel(a,{day:'numeric'}) + ' al ' + dayLabel(b,{day:'numeric', month:'long'}) + (q.slice(0,4)!==today().slice(0,4) ? ' ' + q.slice(0,4) : ''); };
-  // La quincena que viene se recuerda desde el día 14 (o 29) hasta que la confirmes
-  function upcomingQ(){ const t = today(), d = Number(t.slice(8)); const q = qOf(t); if(q.half===1 && d>=14) return qNext(q.id); if(q.half===2 && d>=Math.min(29, monthDays(t)-1)) return qNext(q.id); return null; }
+  // quincenas: de un día de pago al día antes del siguiente (15 y 30 por defecto; se ajustan en ⚙︎)
+  const LS_PAY = 'gastos.pay';
+  let payCfg = Object.assign({d1:15, d2:30, starts:{}}, loadObj(LS_PAY, {})); if(!payCfg.starts || typeof payCfg.starts!=='object') payCfg.starts = {};
+  const savePay = () => { try{ localStorage.setItem(LS_PAY, JSON.stringify(payCfg)); }catch(_){} };
+  const mk = (y,m,d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const nominals = (y,m) => { const n = monthDays(mk(y,m,1)); return [...new Set([Math.min(payCfg.d1,n), Math.min(payCfg.d2,n)])].sort((a,b)=>a-b).map(d=>mk(y,m,d)); };
+  function qList(k){ const [y,m] = k.split('-').map(Number); const out = []; for(const off of [-2,-1,0,1,2]){ let mm = m+off, yy = y; while(mm<1){ mm+=12; yy--; } while(mm>12){ mm-=12; yy++; } out.push(...nominals(yy,mm)); } return out; }
+  const qStart = q => payCfg.starts[q] || q;
+  const qOf = k => { const l = qList(k).filter(q => qStart(q) <= k); return l[l.length-1]; };
+  const qNext = q => qList(q).find(x => x > q);
+  const qPrev = q => { const l = qList(q).filter(x => x < q); return l[l.length-1]; };
+  const qRange = q => { const a = qStart(q), b = addDays(qStart(qNext(q)), -1); return [a, b < a ? a : b]; };
+  const qLabel = q => { const [a,b] = qRange(q); const sameMonth = a.slice(0,7)===b.slice(0,7); return dayLabel(a, sameMonth ? {day:'numeric'} : {day:'numeric', month:'short'}) + ' al ' + dayLabel(b,{day:'numeric', month:'long'}) + (b.slice(0,4)!==today().slice(0,4) ? ' ' + b.slice(0,4) : ''); };
+  function upcomingQ(){ const t = today(), c = qOf(t); for(const q of [c, qNext(c)]){ const st = qStart(q); if(t >= addDays(st,-1) && t <= addDays(st,1)) return q; } return null; }
 
   // ---- amount input formatting
   const amountEl = $('#amount');
@@ -772,7 +791,7 @@
     d.days.forEach(x => { const r = document.createElement('div'); r.className='day'; const future = x.k > t;
       r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; dl.appendChild(r); });
   }
-  $('#openQ').addEventListener('click', ()=>{ qCur = qOf(today()).id; renderQ(); qmodal.classList.add('open'); });
+  $('#openQ').addEventListener('click', ()=>{ qCur = qOf(today()); renderQ(); qmodal.classList.add('open'); });
   $('#qPrevBtn').addEventListener('click', ()=>{ qCur = qPrev(qCur); renderQ(); });
   $('#qNextBtn').addEventListener('click', ()=>{ qCur = qNext(qCur); renderQ(); });
   $('#qClose').addEventListener('click', ()=>qmodal.classList.remove('open'));
@@ -802,7 +821,22 @@
     const uq = upcomingQ(); if(uq && !qConfirmed.includes(uq)) qConfirmed.push(uq);
     saveBudgets(); render(); modal.classList.remove('open'); toast('Base: ' + fmt(wd) + ' / ' + fmt(we));
   });
-  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); $('#geoToggle').checked = geoOn; setMoney($('#baseWd'), base.wd); setMoney($('#baseWe'), base.we); modal.classList.add('open'); });
+  function fillPay(){ const q = qOf(today()); $('#payD1').value = payCfg.d1; $('#payD2').value = payCfg.d2; $('#payStart').value = qStart(q); $('#payPreview').textContent = 'Quincena actual: ' + qLabel(q) + ' · la siguiente empieza el ' + dayLabel(qStart(qNext(q)), {day:'numeric', month:'long'}); }
+  $('#savePay').addEventListener('click', ()=>{
+    const d1 = Number(digits($('#payD1').value)), d2 = Number(digits($('#payD2').value));
+    if(!(d1>=1 && d1<=31 && d2>=1 && d2<=31) || d1===d2){ toast('Pon dos días distintos entre 1 y 31'); return; }
+    payCfg.d1 = Math.min(d1,d2); payCfg.d2 = Math.max(d1,d2);
+    const st = $('#payStart').value, q = qOf(today());
+    if(/^\d{4}-\d{2}-\d{2}$/.test(st)){
+      const nq = qOf(st); // la quincena nominal a la que pertenece esa fecha
+      const prev = qPrev(nq), nxt = qNext(nq);
+      if(st > today()){ toast('La fecha no puede ser futura'); return; }
+      if(st > qStart(nxt) || st <= qStart(prev)){ toast('Esa fecha no cae en la quincena actual'); return; }
+      if(st === nq) delete payCfg.starts[nq]; else payCfg.starts[nq] = st;
+    }
+    savePay(); clearMemo(); render(); fillPay(); toast('Quincena: ' + qLabel(qOf(today())));
+  });
+  $('#openSettings').addEventListener('click', ()=>{ renderEditor(); $('#geoToggle').checked = geoOn; setMoney($('#baseWd'), base.wd); setMoney($('#baseWe'), base.we); fillPay(); modal.classList.add('open'); });
   $('#geoToggle').addEventListener('change', ev=>{ geoOn = ev.target.checked; try{ localStorage.setItem(LS_GEO, geoOn?'1':'0'); }catch(_){} if(geoOn && navigator.geolocation) navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:8000}); });
   $('#closeSettings').addEventListener('click', ()=>modal.classList.remove('open'));
   modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
@@ -839,14 +873,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.payCfg.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{
