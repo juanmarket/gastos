@@ -25,7 +25,7 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro",Inter,system-ui,sans-serif;}
-  body{padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;min-height:100vh;position:relative}
+  body{padding:calc(env(safe-area-inset-top, 0px) + 22px) 16px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;min-height:100vh;position:relative}
 
   /* color blobs behind the glass */
   body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
@@ -91,7 +91,11 @@
   /* settings */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center;z-index:40}
   .modal.open{display:flex}
-  .sheet{width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:18px 16px max(24px,env(safe-area-inset-bottom));border-bottom:0}
+  .sheet{position:relative;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:18px 16px max(24px,env(safe-area-inset-bottom));border-bottom:0}
+  .sclose{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;color:var(--text);font-size:20px;line-height:1;display:grid;place-items:center;padding:0;z-index:2}
+  .sclose:active{transform:scale(.92)}
+  .sheet h2:first-of-type{padding-right:44px}
+  .qrep .qnav{margin-top:40px}
   .sheet h2{margin:0 0 14px;font-size:20px}
   .mrow{padding:12px;margin-bottom:10px;display:grid;grid-template-columns:36px 1fr 1fr auto auto;gap:8px;align-items:center;border-radius:16px}
   .mrow .tc{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--muted);font-weight:700}
@@ -241,6 +245,7 @@
 
 <div class="modal" id="cuadre">
   <div class="sheet glass cuadre">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <h2 id="cTitle">Cuadre de hoy</h2>
     <label>Presupuesto de hoy <span id="cTodayAuto"></span></label>
     <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetToday" type="text" inputmode="numeric" placeholder="0"></div>
@@ -260,6 +265,7 @@
 
 <div class="modal" id="askNote">
   <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <h2>¿En qué lo gastaste?</h2>
     <p class="meta" id="anInfo"></p>
     <input class="note glass" id="anNote" type="text" placeholder="almuerzo, uber, mercado…" autocomplete="off" enterkeyhint="done">
@@ -270,6 +276,7 @@
 
 <div class="modal" id="detail">
   <div class="sheet glass detail">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <p class="big" id="dAmount"></p>
     <p class="meta"><span class="dot" id="dDot"></span><b id="dMethod"></b><span>·</span><span id="dWhen"></span></p>
     <label>Nota</label>
@@ -287,6 +294,7 @@
 
 <div class="modal" id="debtModal">
   <div class="sheet glass cuadre">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <h2 id="dbTitle">Deuda o préstamo</h2>
     <div class="seg glass"><button id="dbMeDeben" class="on">Me deben</button><button id="dbDebo">Debo</button></div>
     <label>Quién</label>
@@ -304,6 +312,7 @@
 
 <div class="modal" id="qmodal">
   <div class="sheet glass qrep">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <div class="qnav"><button class="iconbtn glass" id="qPrevBtn">‹</button><h2 id="qTitle">Quincena</h2><button class="iconbtn glass" id="qNextBtn">›</button></div>
     <div class="kv glass">
       <div><span>Presupuesto base</span><b id="qBase">$0</b></div>
@@ -329,6 +338,7 @@
 
 <div class="modal" id="settings">
   <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
     <h2>Presupuesto base</h2>
     <p class="hint">Lo que arranca cada día antes de sumar el saldo de ayer. Cámbialo cuando te paguen la quincena.</p>
     <div class="baserow">
@@ -926,6 +936,7 @@
 
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
   setInterval(render, 60000); // por si pasa la medianoche con la app abierta
+  document.querySelectorAll('.sclose').forEach(b => b.addEventListener('click', ()=>b.closest('.modal').classList.remove('open')));
   renderMethods(); render(); renderDebts();
 })();
 </script>
