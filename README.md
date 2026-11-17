@@ -44,7 +44,7 @@ El botón **Quincena** abre el informe de la quincena actual (y las anteriores c
 
 ## Tarjetas de crédito
 
-En ⚙︎ cada método tiene un check **TC** (tarjeta de crédito); vienen marcadas Bancolombia TC, Rappi Crédito y Nu. El gasto con tarjeta entra al presupuesto del día como cualquier otro, pero además se suma aparte, **cada tarjeta por separado**: en la pantalla principal ("Tarjetas quincena: Rappi Crédito $75.000 · Nu $120.000") y en el informe de quincena, con un botón Copiar por tarjeta para pasar ese valor al bolsillo con el que la pagas.
+En ⚙︎ cada método tiene un check **TC** (tarjeta de crédito); vienen marcadas Bancolombia TC, Rappi Crédito y Nu. El gasto con tarjeta entra al presupuesto del día como cualquier otro, pero además se suma aparte, **cada tarjeta por separado** y **sin contar lo marcado "del ahorro"** (eso no se paga del presupuesto): en la pantalla principal ("Tarjetas quincena: Rappi Crédito $75.000 · Nu $120.000") y en el informe de quincena, con un botón Copiar por tarjeta para pasar ese valor al bolsillo con el que la pagas.
 
 ## Deudas y préstamos
 

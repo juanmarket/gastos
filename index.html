@@ -315,7 +315,7 @@
       <div><span>Del ahorro</span><b id="qAhorro">$0</b></div>
       <div><span>Por reponer</span><b id="qRep">$0</b></div>
     </div>
-    <label>Tarjetas de crédito · para pagar</label>
+    <label>Tarjetas de crédito · para pagar del presupuesto</label>
     <div class="list glass" id="qCards"></div>
     <label>Por método</label>
     <div class="list glass" id="qMethods"></div>
@@ -669,7 +669,7 @@
     }
     // tarjetas de crédito en lo que va de la quincena
     const hc = $('#homeCards'); const [qa,qb0] = qRange(qOf(t)); const cards = creditMethods();
-    const cardSums = cards.map(m => [m, entries.filter(e => e.method===m.id && dayKey(e.ts)>=qa && dayKey(e.ts)<=qb0).reduce((s,e)=>s+e.amount,0)]).filter(x=>x[1]>0);
+    const cardSums = cards.map(m => [m, entries.filter(e => e.method===m.id && !isAhorro(e) && dayKey(e.ts)>=qa && dayKey(e.ts)<=qb0).reduce((s,e)=>s+e.amount,0)]).filter(x=>x[1]>0);
     if(cardSums.length){ hc.style.display=''; hc.innerHTML = '<span>Tarjetas quincena:</span>' + cardSums.map(([m,v]) => `<span><i class="dot" style="background:${m.color}"></i>${esc(m.name)} <b>${fmt(v)}</b></span>`).join(''); }
     else hc.style.display='none';
     // recordatorio de quincena
@@ -809,8 +809,8 @@
     const cl = $('#qCards'); cl.innerHTML = '';
     const cards = creditMethods();
     if(!cards.length) cl.innerHTML = '<div class="empty">Marca tus tarjetas de crédito con "TC" en ⚙︎</div>';
-    cards.forEach(m => { const v = Object.values(d.byMethod).find(x => x.id===m.id); const sum = v ? v.s : 0; const r = document.createElement('div'); r.className='day';
-      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${v?` <small>· ${v.n}</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
+    cards.forEach(m => { const es = entries.filter(e => e.method===m.id && dayKey(e.ts)>=d.a && dayKey(e.ts)<=d.b); const sum = es.filter(e=>!isAhorro(e)).reduce((s,e)=>s+e.amount,0), ah = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0), n = es.filter(e=>!isAhorro(e)).length; const r = document.createElement('div'); r.className='day';
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ah?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ah)} del ahorro, no va aquí</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
       cl.appendChild(r); });
     cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ()=>{ copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
     const ml = $('#qMethods'); ml.innerHTML = '';
