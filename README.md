@@ -42,6 +42,10 @@ Las quincenas van del día que te pagan hasta el día antes del siguiente pago: 
 
 El botón **Quincena** abre el informe de la quincena actual (y las anteriores con ‹ ›): presupuesto base vs gastado, diferencia, días que te pasaste, total del ahorro y por reponer, gastado por método, y el día a día. **Copiar tabla para el Excel** copia filas con Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.
 
+## Tarjetas de crédito
+
+En ⚙︎ cada método tiene un check **TC** (tarjeta de crédito); vienen marcadas Bancolombia TC, Rappi Crédito y Nu. El gasto con tarjeta entra al presupuesto del día como cualquier otro, pero además se suma aparte, **cada tarjeta por separado**: en la pantalla principal ("Tarjetas quincena: Rappi Crédito $75.000 · Nu $120.000") y en el informe de quincena, con un botón Copiar por tarjeta para pasar ese valor al bolsillo con el que la pagas.
+
 ## Deudas y préstamos
 
 Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: quién, cuánto, si me deben o debo, y una nota. Arriba sale el total "me deben $X · debo $Y". El check marca pagada; "ver pagadas" muestra el historial. Tocar una la edita.

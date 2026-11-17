@@ -93,7 +93,9 @@
   .modal.open{display:flex}
   .sheet{width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:18px 16px max(24px,env(safe-area-inset-bottom));border-bottom:0}
   .sheet h2{margin:0 0 14px;font-size:20px}
-  .mrow{padding:12px;margin-bottom:10px;display:grid;grid-template-columns:36px 1fr 1fr auto;gap:8px;align-items:center;border-radius:16px}
+  .mrow{padding:12px;margin-bottom:10px;display:grid;grid-template-columns:36px 1fr 1fr auto auto;gap:8px;align-items:center;border-radius:16px}
+  .mrow .tc{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--muted);font-weight:700}
+  .mrow .tc input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
   .mrow input{background:rgba(127,127,140,.18);border:0;color:var(--text);padding:10px;border-radius:10px;font-size:14px;min-width:0;width:100%}
   .mrow input[type=color]{padding:0;width:36px;height:36px;border-radius:10px;background:transparent}
   .mrow .x{background:transparent;border:0;color:var(--danger);font-size:20px}
@@ -117,6 +119,10 @@
   .day small{font-size:12px;color:var(--muted);font-weight:500}
   .day b small{margin-left:6px}
   .day small.pos{color:var(--ok)} .day small.neg{color:var(--danger)}
+  .mini{color:var(--text);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .cards{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+  .cards span b{color:var(--text);font-variant-numeric:tabular-nums}
+  .cards .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
   .cuadre label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
   .amountbox.small{padding:10px 14px;margin-bottom:0}
   .amountbox.small input{font-size:28px}
@@ -199,6 +205,7 @@
       <button class="pill glass" id="openQ">Quincena</button>
     </div>
   </div>
+  <div class="cards" id="homeCards" style="display:none"></div>
 </div>
 <div class="qbanner glass" id="qBanner" style="display:none">
   <div><b id="qBannerTitle">Nueva quincena</b><small id="qBannerSub"></small></div>
@@ -308,6 +315,8 @@
       <div><span>Del ahorro</span><b id="qAhorro">$0</b></div>
       <div><span>Por reponer</span><b id="qRep">$0</b></div>
     </div>
+    <label>Tarjetas de crédito · para pagar</label>
+    <div class="list glass" id="qCards"></div>
     <label>Por método</label>
     <div class="list glass" id="qMethods"></div>
     <label>Día a día</label>
@@ -338,7 +347,7 @@
     <p class="hint" id="payPreview"></p>
     <button class="btn glass primary" id="savePay">Guardar quincena</button>
     <h2 style="margin-top:26px">Métodos de pago</h2>
-    <p class="hint">Color · Nombre · Enlace que abre la app (vacío = no abre nada). Nequi: <b>nequi://</b>. Para apps sin enlace propio (Bancolombia, Wallet) crea un Atajo en la app Atajos llamado igual, con la acción "Abrir app", y usa <b>shortcuts://run-shortcut?name=Bancolombia</b>.</p>
+    <p class="hint">Color · Nombre · Enlace que abre la app (vacío = no abre nada) · TC = tarjeta de crédito (se suma aparte en la quincena para pagarla). Nequi: <b>nequi://</b>. Para apps sin enlace propio (Bancolombia, Wallet) crea un Atajo en la app Atajos llamado igual, con la acción "Abrir app", y usa <b>shortcuts://run-shortcut?name=Bancolombia</b>.</p>
     <div id="methodEditor"></div>
     <button class="btn glass" id="addMethod">+ Agregar método</button>
     <button class="btn glass primary" id="saveMethods">Guardar</button>
@@ -366,11 +375,11 @@
     {id:'bancolombia', name:'Bancolombia', sub:'App', url:SC('Bancolombia'), color:'#ffd400'},
     {id:'nequi',       name:'Nequi',       sub:'App', url:'nequi://',       color:'#e6007e'},
     {id:'efectivo',    name:'Efectivo',    sub:'',    url:'',               color:'#3ccf7a'},
-    {id:'aw-bcol-tc',  name:'Bancolombia TC', sub:'Apple Wallet', url:WALLET, color:'#ffd400'},
+    {id:'aw-bcol-tc',  name:'Bancolombia TC', sub:'Apple Wallet', url:WALLET, color:'#ffd400', credit:true},
     {id:'aw-bcol-db',  name:'Bancolombia Débito', sub:'Apple Wallet', url:WALLET, color:'#ffb300'},
-    {id:'aw-rappi-tc', name:'Rappi Crédito', sub:'Apple Wallet', url:WALLET, color:'#ff441f'},
+    {id:'aw-rappi-tc', name:'Rappi Crédito', sub:'Apple Wallet', url:WALLET, color:'#ff441f', credit:true},
     {id:'aw-rappi-db', name:'Rappi Débito', sub:'Apple Wallet', url:WALLET, color:'#ff7a5c'},
-    {id:'aw-nu',       name:'Nu',           sub:'Apple Wallet', url:WALLET, color:'#820ad1'},
+    {id:'aw-nu',       name:'Nu',           sub:'Apple Wallet', url:WALLET, color:'#820ad1', credit:true},
   ];
 
   let methods = load(LS_M, DEFAULT_METHODS);
@@ -387,7 +396,17 @@
     try{ localStorage.setItem(LS_V, '3'); }catch(_){}
     save();
   }
+  if((Number(localStorage.getItem(LS_V))||1) < 4){
+    methods.forEach(m => { if(m.credit == null && ['aw-bcol-tc','aw-rappi-tc','aw-nu'].includes(m.id)) m.credit = true; });
+    try{ localStorage.setItem(LS_V, '4'); }catch(_){}
+    save();
+  }
   const isWallet = m => (m.sub || '') === 'Apple Wallet';
+  const creditMethods = () => methods.filter(m => m.credit);
+  async function copyText(txt){
+    try{ await Promise.race([navigator.clipboard.writeText(txt), new Promise((_,rej)=>setTimeout(rej, 800))]); }
+    catch(_){ const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} document.body.removeChild(ta); }
+  }
 
   function load(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : d; }catch(e){ return d; } }
   function save(){ try{ localStorage.setItem(LS_M, JSON.stringify(methods)); localStorage.setItem(LS_E, JSON.stringify(entries)); }catch(e){ console.warn('No se pudo guardar', e); } }
@@ -648,6 +667,11 @@
       $('#budgetLeft').textContent = left >= 0 ? 'Quedan ' + fmt(left) : 'Te pasaste ' + fmt(-left);
       $('#budgetBar').style.width = pct + '%';
     }
+    // tarjetas de crédito en lo que va de la quincena
+    const hc = $('#homeCards'); const [qa,qb0] = qRange(qOf(t)); const cards = creditMethods();
+    const cardSums = cards.map(m => [m, entries.filter(e => e.method===m.id && dayKey(e.ts)>=qa && dayKey(e.ts)<=qb0).reduce((s,e)=>s+e.amount,0)]).filter(x=>x[1]>0);
+    if(cardSums.length){ hc.style.display=''; hc.innerHTML = '<span>Tarjetas quincena:</span>' + cardSums.map(([m,v]) => `<span><i class="dot" style="background:${m.color}"></i>${esc(m.name)} <b>${fmt(v)}</b></span>`).join(''); }
+    else hc.style.display='none';
     // recordatorio de quincena
     const uq = upcomingQ(); const qb = $('#qBanner');
     if(uq && !qConfirmed.includes(uq)){
@@ -782,6 +806,13 @@
     const diff = baseSum - spent; $('#qDiff').textContent = (diff>=0?'+':'') + fmt(diff); $('#qDiff').style.color = diff < 0 ? 'var(--danger)' : 'var(--ok)';
     $('#qOver').textContent = past.filter(x => x.spent > x.bud).length + ' de ' + past.length;
     $('#qAhorro').textContent = fmt(ah); $('#qRep').textContent = fmt(d.rep); $('#qRep').style.color = d.rep ? '#ff9f0a' : '';
+    const cl = $('#qCards'); cl.innerHTML = '';
+    const cards = creditMethods();
+    if(!cards.length) cl.innerHTML = '<div class="empty">Marca tus tarjetas de crédito con "TC" en ⚙︎</div>';
+    cards.forEach(m => { const v = Object.values(d.byMethod).find(x => x.id===m.id); const sum = v ? v.s : 0; const r = document.createElement('div'); r.className='day';
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${v?` <small>· ${v.n}</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
+      cl.appendChild(r); });
+    cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ()=>{ copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
     const ml = $('#qMethods'); ml.innerHTML = '';
     const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s);
     if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en esta quincena</div>';
@@ -848,6 +879,7 @@
       r.innerHTML = `<input type="color" value="${m.color||'#666666'}">
         <input type="text" placeholder="Nombre" value="${esc(m.name)}">
         <input type="text" placeholder="Enlace (bancolombia://)" value="${esc(m.url||'')}">
+        <label class="tc" title="Tarjeta de crédito"><input type="checkbox" ${m.credit?'checked':''}>TC</label>
         <button class="x" title="Quitar">×</button>`;
       r.querySelector('.x').addEventListener('click', ()=>{ r.remove(); });
       r.dataset.id = m.id;
@@ -856,17 +888,17 @@
   }
   $('#addMethod').addEventListener('click', ()=>{
     const r = document.createElement('div'); r.className='mrow glass'; r.dataset.id = 'm'+Date.now();
-    r.innerHTML = `<input type="color" value="#4f8cff"><input type="text" placeholder="Nombre"><input type="text" placeholder="Enlace (opcional)"><button class="x">×</button>`;
+    r.innerHTML = `<input type="color" value="#4f8cff"><input type="text" placeholder="Nombre"><input type="text" placeholder="Enlace (opcional)"><label class="tc" title="Tarjeta de crédito"><input type="checkbox">TC</label><button class="x">×</button>`;
     r.querySelector('.x').addEventListener('click', ()=>r.remove());
     $('#methodEditor').appendChild(r);
   });
   $('#saveMethods').addEventListener('click', ()=>{
     const rows = [...$('#methodEditor').querySelectorAll('.mrow')];
     const next = rows.map(r=>{
-      const [c,n,u] = r.querySelectorAll('input');
+      const [c,n,u,tc] = r.querySelectorAll('input');
       const url = u.value.trim();
       const old = methods.find(x=>x.id===r.dataset.id);
-      return { id:r.dataset.id, name:n.value.trim()||'Sin nombre', url, color:c.value, sub: (old && old.sub) || (url?'App':'') };
+      return { id:r.dataset.id, name:n.value.trim()||'Sin nombre', url, color:c.value, sub: (old && old.sub) || (url?'App':''), credit: !!tc.checked };
     });
     if(next.length){ methods = next; save(); renderMethods(); render(); }
     modal.classList.remove('open');
