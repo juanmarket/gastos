@@ -95,7 +95,10 @@
   .sclose{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;color:var(--text);font-size:20px;line-height:1;display:grid;place-items:center;padding:0;z-index:2}
   .sclose:active{transform:scale(.92)}
   .sheet h2:first-of-type{padding-right:44px}
-  .qrep .qnav{margin-top:40px}
+  .qrep .tabs{margin-top:40px}
+  .tabs{display:flex;padding:4px;border-radius:999px;margin-bottom:12px}
+  .tabs button{flex:1;background:transparent;border:0;color:var(--muted);padding:10px;border-radius:999px;font-size:14px;font-weight:700}
+  .tabs button.on{background:var(--glass2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.15), inset 0 1px 0 var(--edge2)}
   .sheet h2{margin:0 0 14px;font-size:20px}
   .mrow{padding:12px;margin-bottom:10px;display:grid;grid-template-columns:36px 1fr 1fr auto auto;gap:8px;align-items:center;border-radius:16px}
   .mrow .tc{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--muted);font-weight:700}
@@ -208,7 +211,7 @@
     <span id="budgetLeft"></span>
     <div class="hbtns">
       <button class="pill glass" id="openCuadre">Cuadre</button>
-      <button class="pill glass" id="openQ">Quincena</button>
+      <button class="pill glass" id="openQ">📊 Informes</button>
     </div>
   </div>
   <div class="cards" id="homeCards" style="display:none"></div>
@@ -240,8 +243,9 @@
 <div class="list glass" id="debtList"></div>
 <p class="hint" style="text-align:center"><a href="#" id="toggleDebtPaid" class="link">ver pagadas</a></p>
 
-<div class="section"><h2>Últimos 7 días</h2><span id="weekTotal"></span></div>
+<div class="section"><h2 id="weekTitle">Últimos 7 días</h2><span id="weekTotal"></span></div>
 <div class="list glass" id="weekList"></div>
+<p class="hint" style="text-align:center"><a href="#" id="weekMore" class="link">ver la quincena completa</a></p>
 
 <div class="toast glass" id="toast"><span id="toastMsg"></span><button id="undoBtn" style="display:none">Deshacer</button></div>
 
@@ -331,6 +335,7 @@
 <div class="modal" id="qmodal">
   <div class="sheet glass qrep">
     <button class="sclose glass" aria-label="Cerrar">×</button>
+    <div class="tabs glass"><button class="on" data-mode="q">Quincena</button><button data-mode="m">Mes</button></div>
     <div class="qnav"><button class="iconbtn glass" id="qPrevBtn">‹</button><h2 id="qTitle">Quincena</h2><button class="iconbtn glass" id="qNextBtn">›</button></div>
     <div class="kv glass">
       <div><span>Presupuesto base</span><b id="qBase">$0</b></div>
@@ -760,7 +765,10 @@
     }
 
     const wl = $('#weekList'); wl.innerHTML=''; let wt=0, wb=0;
-    for(let i=0;i<7;i++){
+    const wqa = qStart(qOf(t)); const nDays = weekFull ? Math.round((keyDate(t)-keyDate(wqa))/86400000)+1 : 7;
+    $('#weekTitle').textContent = weekFull ? 'Esta quincena · desde el ' + dayLabel(wqa,{day:'numeric', month:'short'}) : 'Últimos 7 días';
+    $('#weekMore').textContent = weekFull ? 'ver solo 7 días' : 'ver la quincena completa';
+    for(let i=0;i<nDays;i++){
       const k = addDays(t, -i);
       const s = spentOn(k), b = budgetOf(k); wt += s; wb += b;
       const row = document.createElement('div'); row.className='day';
@@ -772,6 +780,9 @@
     }
     $('#weekTotal').textContent = fmt(wt);
   }
+
+  let weekFull = false;
+  $('#weekMore').addEventListener('click', ev=>{ ev.preventDefault(); weekFull = !weekFull; render(); });
 
   // ---- toast + undo
   function toast(msg, undo){
@@ -836,9 +847,14 @@
   dbmodal.addEventListener('click', ev=>{ if(ev.target===dbmodal) dbmodal.classList.remove('open'); });
 
   // ---- informe de quincena
-  const qmodal = $('#qmodal'); let qCur = null;
+  const qmodal = $('#qmodal'); let qCur = null, qMode = 'q';
+  const mRange = ym => [ym + '-01', ym + '-' + String(monthDays(ym + '-01')).padStart(2,'0')];
+  const mShift = (ym, n) => { let [y,m] = ym.split('-').map(Number); m += n; while(m<1){ m+=12; y--; } while(m>12){ m-=12; y++; } return y + '-' + String(m).padStart(2,'0'); };
+  const mLabel = ym => { const s = dayLabel(ym + '-01', {month:'long', year:'numeric'}); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const curRange = () => qMode === 'm' ? mRange(qCur) : qRange(qCur);
+  const curLabel = () => qMode === 'm' ? mLabel(qCur) : qLabel(qCur);
   function qData(q){
-    const [a,b] = qRange(q); const days = []; clearMemo();
+    const [a,b] = curRange(); const days = []; clearMemo();
     for(let k = a; k <= b; k = addDays(k, 1)) days.push({k, base:baseOf(k), bud:budgetOf(k), spent:spentOn(k), ah:ahorroOn(k)});
     const inQ = e => { const k = dayKey(e.ts); return k >= a && k <= b; };
     const byMethod = {}; entries.filter(inQ).forEach(e => { const m = byMethod[e.methodName] || (byMethod[e.methodName] = {n:0, s:0, id:e.method}); m.n++; m.s += e.amount; });
@@ -849,7 +865,7 @@
     const d = qData(qCur), t = today();
     const past = d.days.filter(x => x.k <= t);
     const baseSum = past.reduce((s,x)=>s+x.base,0), spent = past.reduce((s,x)=>s+x.spent,0), ah = d.days.reduce((s,x)=>s+x.ah,0);
-    $('#qTitle').textContent = qLabel(qCur);
+    $('#qTitle').textContent = curLabel();
     $('#qBase').textContent = fmt(baseSum); $('#qSpent').textContent = fmt(spent);
     const diff = baseSum - spent; $('#qDiff').textContent = (diff>=0?'+':'') + fmt(diff); $('#qDiff').style.color = diff < 0 ? 'var(--danger)' : 'var(--ok)';
     $('#qOver').textContent = past.filter(x => x.spent > x.bud).length + ' de ' + past.length;
@@ -863,16 +879,18 @@
     cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ()=>{ copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
     const ml = $('#qMethods'); ml.innerHTML = '';
     const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s);
-    if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en esta quincena</div>';
+    if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en este periodo</div>';
     ms.forEach(([name, v]) => { const m = methods.find(x=>x.id===v.id); const r = document.createElement('div'); r.className='day';
       r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n}</small></span><b>${fmt(v.s)}</b>`; ml.appendChild(r); });
     const dl = $('#qDays'); dl.innerHTML = '';
     d.days.forEach(x => { const r = document.createElement('div'); r.className='day'; const future = x.k > t;
       r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; if(!future){ r.classList.add('tap'); r.addEventListener('click', ()=>openDay(x.k)); } dl.appendChild(r); });
   }
-  $('#openQ').addEventListener('click', ()=>{ qCur = qOf(today()); renderQ(); qmodal.classList.add('open'); });
-  $('#qPrevBtn').addEventListener('click', ()=>{ qCur = qPrev(qCur); renderQ(); });
-  $('#qNextBtn').addEventListener('click', ()=>{ qCur = qNext(qCur); renderQ(); });
+  function setMode(m){ qMode = m; qCur = m === 'm' ? today().slice(0,7) : qOf(today()); document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.mode===m)); renderQ(); }
+  document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', ()=>setMode(b.dataset.mode)));
+  $('#openQ').addEventListener('click', ()=>{ setMode(qMode); qmodal.classList.add('open'); });
+  $('#qPrevBtn').addEventListener('click', ()=>{ qCur = qMode==='m' ? mShift(qCur,-1) : qPrev(qCur); renderQ(); });
+  $('#qNextBtn').addEventListener('click', ()=>{ qCur = qMode==='m' ? mShift(qCur,1) : qNext(qCur); renderQ(); });
   $('#qClose').addEventListener('click', ()=>qmodal.classList.remove('open'));
   qmodal.addEventListener('click', ev=>{ if(ev.target===qmodal) qmodal.classList.remove('open'); });
   $('#qCopy').addEventListener('click', async ()=>{
