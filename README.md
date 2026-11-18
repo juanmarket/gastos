@@ -52,7 +52,7 @@ Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: qui
 
 ## Detalle de un gasto
 
-Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí.
+Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí. Para días anteriores, toca el día en "Últimos 7 días" o en el día a día del informe de quincena: abre la lista de gastos de esa fecha y desde ahí cada gasto.
 
 ## Ubicación (GPS)
 

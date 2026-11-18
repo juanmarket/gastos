@@ -123,6 +123,8 @@
   .day small{font-size:12px;color:var(--muted);font-weight:500}
   .day b small{margin-left:6px}
   .day small.pos{color:var(--ok)} .day small.neg{color:var(--danger)}
+  .day.tap{cursor:pointer} .day.tap:active{background:rgba(127,127,140,.12)}
+  .day.tap>span:first-child::after{content:" ›";color:var(--muted)}
   .mini{color:var(--text);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
   .cards{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
   .cards span b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -271,6 +273,22 @@
     <input class="note glass" id="anNote" type="text" placeholder="almuerzo, uber, mercado…" autocomplete="off" enterkeyhint="done">
     <button class="btn glass primary" id="anOk">Seguir</button>
     <button class="btn glass" id="anCancel">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal" id="dayModal">
+  <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2 id="dyTitle">Día</h2>
+    <div class="kv glass">
+      <div><span>Gastado</span><b id="dySpent">$0</b></div>
+      <div><span>Presupuesto</span><b id="dyBud">$0</b></div>
+      <div><span>Saldo</span><b id="dyLeft">$0</b></div>
+    </div>
+    <p class="hint" id="dyAh" style="display:none">🐷 Del ahorro ese día: <b id="dyAhVal"></b> (no cuenta en el gastado)</p>
+    <label>Gastos</label>
+    <div class="list glass" id="dayList"></div>
+    <p class="hint">Toca un gasto para ver o editar su detalle.</p>
   </div>
 </div>
 
@@ -627,6 +645,35 @@
 
   // ---- detail sheet
   const dmodal = $('#detail'); let detailId = null;
+  function entryRow(e){
+    const m = methods.find(x=>x.id===e.method);
+    const r = document.createElement('div'); r.className='row';
+    r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
+      <div class="info"><b>${esc(e.methodName)}${e.ahorro?`<span class="tag${e.repuesto?' ok':''}">${e.repuesto?'repuesto':'ahorro'}</span>`:''}</b><small>${timeLabel(e.ts)}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
+      <span class="amt">${fmt(e.amount)}</span>
+      <button class="del" title="Borrar">×</button>`;
+    r.querySelector('.del').addEventListener('click', ev=>{ ev.stopPropagation(); if(!confirm('¿Borrar este gasto?')) return; entries = entries.filter(x=>x.id!==e.id); save(); render(); });
+    r.addEventListener('click', ()=>openDetail(e));
+    return r;
+  }
+
+  // ---- detalle de un día (lista de gastos de esa fecha)
+  const dayModal = $('#dayModal'); let dayOpen = null;
+  function renderDay(){
+    if(!dayOpen) return; const k = dayOpen, t = today();
+    const es = entries.filter(e => dayKey(e.ts)===k).sort((a,b)=>b.ts-a.ts);
+    const s = spentOn(k), b = budgetOf(k), ah = es.filter(isAhorro).reduce((x,e)=>x+e.amount,0);
+    $('#dyTitle').textContent = k===t ? 'Hoy' : k===addDays(t,-1) ? 'Ayer' : dayLabel(k, {weekday:'long', day:'numeric', month:'long'});
+    $('#dySpent').textContent = fmt(s); $('#dyBud').textContent = fmt(b);
+    const left = b - s; $('#dyLeft').textContent = (left<0?'-':'+') + fmt(Math.abs(left)); $('#dyLeft').style.color = left<0 ? 'var(--danger)' : 'var(--ok)';
+    $('#dyAh').style.display = ah ? '' : 'none'; $('#dyAhVal').textContent = fmt(ah);
+    const l = $('#dayList'); l.innerHTML = '';
+    if(!es.length) l.innerHTML = '<div class="empty">Sin gastos ese día</div>';
+    es.forEach(e => l.appendChild(entryRow(e)));
+  }
+  function openDay(k){ dayOpen = k; renderDay(); dayModal.classList.add('open'); }
+  dayModal.addEventListener('click', ev=>{ if(ev.target===dayModal) dayModal.classList.remove('open'); });
+
   function openDetail(e){
     detailId = e.id;
     const m = methods.find(x=>x.id===e.method); const c = (m&&m.color)||'#666';
@@ -692,18 +739,8 @@
 
     const tl = $('#todayList'); tl.innerHTML='';
     if(!todays.length){ tl.innerHTML = '<div class="empty">Nada todavía. Escribe un valor y toca con qué pagaste.</div>'; }
-    todays.forEach(e => {
-      const m = methods.find(x=>x.id===e.method);
-      const r = document.createElement('div'); r.className='row';
-      const time = timeLabel(e.ts);
-      r.innerHTML = `<span class="dot" style="background:${(m&&m.color)||'#666'};color:${(m&&m.color)||'#666'}"></span>
-        <div class="info"><b>${esc(e.methodName)}${e.ahorro?`<span class="tag${e.repuesto?' ok':''}">${e.repuesto?'repuesto':'ahorro'}</span>`:''}</b><small>${time}${e.note?' · '+esc(e.note):''}${e.lat!=null?' · 📍':''}</small></div>
-        <span class="amt">${fmt(e.amount)}</span>
-        <button class="del" title="Borrar">×</button>`;
-      r.querySelector('.del').addEventListener('click', ev=>{ ev.stopPropagation(); entries = entries.filter(x=>x.id!==e.id); save(); render(); });
-      r.addEventListener('click', ()=>openDetail(e));
-      tl.appendChild(r);
-    });
+    todays.forEach(e => tl.appendChild(entryRow(e)));
+    if(dayModal.classList.contains('open')) renderDay();
 
     // por reponer al ahorro (todas las fechas)
     const rep = entries.filter(e => e.ahorro && !e.repuesto);
@@ -730,6 +767,7 @@
       const label = i===0?'Hoy':i===1?'Ayer':dayLabel(k, {weekday:'short', day:'numeric'});
       const saldo = `<small class="${b-s<0?'neg':'pos'}">${b-s<0?'-':'+'}${fmt(Math.abs(b-s))}</small>`;
       row.innerHTML = `<span>${label} <small>· de ${fmt(b)}</small></span><b>${s?fmt(s):'—'} ${saldo}</b>`;
+      row.classList.add('tap'); row.addEventListener('click', ()=>openDay(k));
       wl.appendChild(row);
     }
     $('#weekTotal').textContent = fmt(wt);
@@ -830,7 +868,7 @@
       r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n}</small></span><b>${fmt(v.s)}</b>`; ml.appendChild(r); });
     const dl = $('#qDays'); dl.innerHTML = '';
     d.days.forEach(x => { const r = document.createElement('div'); r.className='day'; const future = x.k > t;
-      r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; dl.appendChild(r); });
+      r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; if(!future){ r.classList.add('tap'); r.addEventListener('click', ()=>openDay(x.k)); } dl.appendChild(r); });
   }
   $('#openQ').addEventListener('click', ()=>{ qCur = qOf(today()); renderQ(); qmodal.classList.add('open'); });
   $('#qPrevBtn').addEventListener('click', ()=>{ qCur = qPrev(qCur); renderQ(); });
