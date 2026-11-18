@@ -40,7 +40,7 @@ El botón **Del ahorro** junto a la nota marca el próximo gasto como sacado del
 
 Las quincenas van del día que te pagan hasta el día antes del siguiente pago: por defecto el 15 y el 30 (en ⚙︎ → Quincena se cambian los días). Si un mes te pagan otro día (por ejemplo el 13 porque el 15 cae domingo), en ⚙︎ pones "la quincena actual empezó el" y esa quincena se ajusta sola. Desde el día antes del pago aparece arriba "Nueva quincena: ¿sigues con 40.000 / 96.000?" con botones para seguir igual o cambiar la base.
 
-El botón **📊 Informes** (junto a Cuadre) abre el informe con dos pestañas, **Quincena** y **Mes** (y los periodos anteriores con ‹ ›): presupuesto base vs gastado, diferencia, días que te pasaste, total del ahorro y por reponer, gastado por método, y el día a día. **Copiar tabla para el Excel** copia filas con Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.
+El botón **📊 Informes** (junto a Cuadre) abre el informe con dos pestañas, **Quincena** y **Mes** (y los periodos anteriores con ‹ ›): base vs gastado hasta hoy con la cuenta explicada (cuántos días entre semana y de fin de semana van, y cuánto suma el periodo completo), promedio diario, proyección al cierre si sigues a ese ritmo, saldo que arrastras a mañana, días que te pasaste, días en cero, día más caro, ahorro y por reponer, tarjetas de crédito por separado, gastado por método con porcentaje, y el día a día con una barra de gastado vs presupuesto. **Copiar tabla para el Excel** copia filas con Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.
 
 ## Tarjetas de crédito
 

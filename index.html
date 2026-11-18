@@ -143,6 +143,14 @@
   .kv div+div{border-left:1px solid var(--edge)}
   .kv span{font-size:12px;color:var(--muted)}
   .kv b{font-size:20px;font-variant-numeric:tabular-nums}
+  .kv small{font-size:11px;color:var(--muted);line-height:1.3}
+  .bar2{height:6px;border-radius:999px;background:rgba(127,127,140,.22);overflow:hidden;margin-top:6px}
+  .bar2 i{display:block;height:100%;border-radius:999px;background:var(--ok)} .bar2 i.over{background:var(--danger)}
+  .qday{display:block;padding:10px 14px;border-bottom:1px solid var(--edge)} .qday:last-child{border-bottom:0}
+  .qday .l{display:flex;justify-content:space-between;align-items:baseline}
+  .qday .l small{font-size:12px;color:var(--muted)} .qday .l b{font-variant-numeric:tabular-nums}
+  .qday.tap{cursor:pointer} .qday.tap:active{background:rgba(127,127,140,.12)}
+  .qday.future{opacity:.45}
   .row{cursor:pointer}
   .row:active{background:rgba(127,127,140,.12)}
 
@@ -337,21 +345,42 @@
     <button class="sclose glass" aria-label="Cerrar">×</button>
     <div class="tabs glass"><button class="on" data-mode="q">Quincena</button><button data-mode="m">Mes</button></div>
     <div class="qnav"><button class="iconbtn glass" id="qPrevBtn">‹</button><h2 id="qTitle">Quincena</h2><button class="iconbtn glass" id="qNextBtn">›</button></div>
+    <p class="hint" id="qWhen" style="margin-top:-6px"></p>
+
+    <label>Presupuesto vs gastado · hasta hoy</label>
     <div class="kv glass">
-      <div><span>Presupuesto base</span><b id="qBase">$0</b></div>
-      <div><span>Gastado</span><b id="qSpent">$0</b></div>
-      <div><span>Diferencia</span><b id="qDiff">$0</b></div>
+      <div><span>Base hasta hoy</span><b id="qBase">$0</b><small id="qBaseSub"></small></div>
+      <div><span>Gastado</span><b id="qSpent">$0</b><small id="qSpentSub"></small></div>
+      <div><span>Diferencia</span><b id="qDiff">$0</b><small id="qDiffSub"></small></div>
     </div>
-    <div class="kv glass" style="margin-top:8px">
-      <div><span>Días pasado</span><b id="qOver">0</b></div>
-      <div><span>Del ahorro</span><b id="qAhorro">$0</b></div>
-      <div><span>Por reponer</span><b id="qRep">$0</b></div>
+    <p class="hint" id="qExplain"></p>
+
+    <label>Ritmo y proyección</label>
+    <div class="kv glass">
+      <div><span>Promedio por día</span><b id="qAvg">$0</b><small>de lo gastado</small></div>
+      <div><span>A este ritmo</span><b id="qProj">$0</b><small id="qProjSub"></small></div>
+      <div><span>Arrastras</span><b id="qCarry">$0</b><small>saldo a mañana</small></div>
     </div>
+    <p class="hint" id="qProjExplain"></p>
+
+    <label>Días</label>
+    <div class="kv glass">
+      <div><span>Te pasaste</span><b id="qOver">0</b><small>días sobre su presupuesto</small></div>
+      <div><span>Sin gastos</span><b id="qZero">0</b><small>días en cero</small></div>
+      <div><span>Día más caro</span><b id="qMax">—</b><small id="qMaxSub"></small></div>
+    </div>
+
+    <label>Ahorro</label>
+    <div class="kv glass">
+      <div><span>Del ahorro</span><b id="qAhorro">$0</b><small>no cuenta en el día</small></div>
+      <div><span>Por reponer</span><b id="qRep">$0</b><small>pendiente de devolver</small></div>
+    </div>
+
     <label>Tarjetas de crédito · para pagar del presupuesto</label>
     <div class="list glass" id="qCards"></div>
-    <label>Por método</label>
+    <label>Por método · % de lo gastado (sin lo del ahorro)</label>
     <div class="list glass" id="qMethods"></div>
-    <label>Día a día</label>
+    <label>Día a día · barra = gastado vs presupuesto del día</label>
     <div class="list glass" id="qDays"></div>
     <button class="btn glass" id="qCopy">Copiar tabla para el Excel</button>
     <p class="hint">Copia filas Fecha · Día · Presupuesto · Gasto real · Saldo · Ahorro, listas para pegar en la hoja.</p>
@@ -857,34 +886,61 @@
     const [a,b] = curRange(); const days = []; clearMemo();
     for(let k = a; k <= b; k = addDays(k, 1)) days.push({k, base:baseOf(k), bud:budgetOf(k), spent:spentOn(k), ah:ahorroOn(k)});
     const inQ = e => { const k = dayKey(e.ts); return k >= a && k <= b; };
-    const byMethod = {}; entries.filter(inQ).forEach(e => { const m = byMethod[e.methodName] || (byMethod[e.methodName] = {n:0, s:0, id:e.method}); m.n++; m.s += e.amount; });
+    const byMethod = {}; entries.filter(e => inQ(e) && !isAhorro(e)).forEach(e => { const m = byMethod[e.methodName] || (byMethod[e.methodName] = {n:0, s:0, id:e.method}); m.n++; m.s += e.amount; });
     const rep = entries.filter(e => inQ(e) && e.ahorro && !e.repuesto).reduce((s,e)=>s+e.amount,0);
     return {a, b, days, byMethod, rep};
   }
   function renderQ(){
     const d = qData(qCur), t = today();
-    const past = d.days.filter(x => x.k <= t);
-    const baseSum = past.reduce((s,x)=>s+x.base,0), spent = past.reduce((s,x)=>s+x.spent,0), ah = d.days.reduce((s,x)=>s+x.ah,0);
+    const past = d.days.filter(x => x.k <= t), future = d.days.filter(x => x.k > t);
+    const nWd = d.days.filter(x=>!isWeekend(x.k)).length, nWe = d.days.length - nWd;
+    const pWd = past.filter(x=>!isWeekend(x.k)).length, pWe = past.length - pWd;
+    const baseAll = d.days.reduce((s,x)=>s+x.base,0), baseSum = past.reduce((s,x)=>s+x.base,0);
+    const spent = past.reduce((s,x)=>s+x.spent,0), ah = d.days.reduce((s,x)=>s+x.ah,0);
+    const diff = baseSum - spent;
+    const per = qMode==='m' ? 'el mes' : 'la quincena', perFull = qMode==='m' ? 'El mes completo' : 'La quincena completa';
     $('#qTitle').textContent = curLabel();
-    $('#qBase').textContent = fmt(baseSum); $('#qSpent').textContent = fmt(spent);
-    const diff = baseSum - spent; $('#qDiff').textContent = (diff>=0?'+':'') + fmt(diff); $('#qDiff').style.color = diff < 0 ? 'var(--danger)' : 'var(--ok)';
+    $('#qWhen').textContent = `${d.days.length} días en total · ${past.length} ya ${past.length===1?'pasó':'pasaron'} (hasta hoy) · ${future.length} ${future.length===1?'falta':'faltan'}`;
+    $('#qBase').textContent = fmt(baseSum); $('#qBaseSub').textContent = `${pWd}×${fmt(base.wd)} + ${pWe}×${fmt(base.we)}`;
+    $('#qSpent').textContent = fmt(spent); $('#qSpentSub').textContent = `en ${past.length} día${past.length===1?'':'s'}`;
+    $('#qDiff').textContent = (diff>=0?'+':'') + fmt(diff); $('#qDiff').style.color = diff < 0 ? 'var(--danger)' : 'var(--ok)';
+    $('#qDiffSub').textContent = diff >= 0 ? 'sobró vs base' : 'faltó vs base';
+    $('#qExplain').textContent = `Base = lo que te tocaba sin contar arrastres: ${fmt(base.wd)} entre semana y ${fmt(base.we)} fin de semana. ` +
+      `${perFull} son ${d.days.length} días (${nWd} entre semana + ${nWe} de fin de semana) = ${fmt(baseAll)}. ` +
+      `Hasta hoy van ${past.length} (${pWd} entre semana + ${pWe} de fin de semana) = ${fmt(baseSum)}. ` +
+      (diff >= 0 ? `Gastaste ${fmt(spent)}, o sea ${fmt(diff)} menos de lo que te tocaba.` : `Gastaste ${fmt(spent)}, o sea ${fmt(-diff)} más de lo que te tocaba.`);
+    const avg = past.length ? Math.round(spent / past.length) : 0;
+    const proj = Math.round((spent + avg * future.length)/100)*100;
+    $('#qAvg').textContent = fmt(avg);
+    $('#qProj').textContent = fmt(proj); $('#qProj').style.color = proj > baseAll ? 'var(--danger)' : 'var(--ok)';
+    $('#qProjSub').textContent = `cerrarías ${per} · base ${fmt(baseAll)}`;
+    const carry = past.length ? (past[past.length-1].bud - past[past.length-1].spent) : 0;
+    $('#qCarry').textContent = (carry>=0?'+':'') + fmt(carry); $('#qCarry').style.color = carry < 0 ? 'var(--danger)' : 'var(--ok)';
+    $('#qProjExplain').textContent = future.length
+      ? `Si sigues gastando ${fmt(avg)} por día los ${future.length} días que faltan, terminarías en ${fmt(proj)}, ${proj > baseAll ? fmt(proj-baseAll)+' por encima' : fmt(baseAll-proj)+' por debajo'} de la base de ${per}. "Arrastras" es el saldo de hoy que pasa al presupuesto de mañana.`
+      : `${per.charAt(0).toUpperCase()+per.slice(1)} ya terminó: cerraste en ${fmt(spent)} frente a una base de ${fmt(baseAll)}.`;
     $('#qOver').textContent = past.filter(x => x.spent > x.bud).length + ' de ' + past.length;
+    $('#qZero').textContent = past.filter(x => !x.spent).length + ' de ' + past.length;
+    const mx = past.reduce((m,x) => x.spent > (m?m.spent:0) ? x : m, null);
+    $('#qMax').textContent = mx && mx.spent ? fmt(mx.spent) : '—'; $('#qMaxSub').textContent = mx && mx.spent ? dayLabel(mx.k,{weekday:'short', day:'numeric', month:'short'}) : '';
     $('#qAhorro').textContent = fmt(ah); $('#qRep').textContent = fmt(d.rep); $('#qRep').style.color = d.rep ? '#ff9f0a' : '';
     const cl = $('#qCards'); cl.innerHTML = '';
     const cards = creditMethods();
     if(!cards.length) cl.innerHTML = '<div class="empty">Marca tus tarjetas de crédito con "TC" en ⚙︎</div>';
-    cards.forEach(m => { const es = entries.filter(e => e.method===m.id && dayKey(e.ts)>=d.a && dayKey(e.ts)<=d.b); const sum = es.filter(e=>!isAhorro(e)).reduce((s,e)=>s+e.amount,0), ah = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0), n = es.filter(e=>!isAhorro(e)).length; const r = document.createElement('div'); r.className='day';
-      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ah?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ah)} del ahorro, no va aquí</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
+    cards.forEach(m => { const es = entries.filter(e => e.method===m.id && dayKey(e.ts)>=d.a && dayKey(e.ts)<=d.b); const sum = es.filter(e=>!isAhorro(e)).reduce((s,e)=>s+e.amount,0), ahm = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0), n = es.filter(e=>!isAhorro(e)).length; const r = document.createElement('div'); r.className='day';
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ahm?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ahm)} del ahorro, no va aquí</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
       cl.appendChild(r); });
     cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ()=>{ copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
     const ml = $('#qMethods'); ml.innerHTML = '';
-    const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s);
+    const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s); const tot = ms.reduce((s,[,v])=>s+v.s,0);
     if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en este periodo</div>';
-    ms.forEach(([name, v]) => { const m = methods.find(x=>x.id===v.id); const r = document.createElement('div'); r.className='day';
-      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n}</small></span><b>${fmt(v.s)}</b>`; ml.appendChild(r); });
+    ms.forEach(([name, v]) => { const m = methods.find(x=>x.id===v.id); const pct = tot ? Math.round(v.s*100/tot) : 0; const r = document.createElement('div'); r.className='qday';
+      r.innerHTML = `<div class="l"><span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n} gasto${v.n===1?'':'s'} · ${pct}%</small></span><b>${fmt(v.s)}</b></div><div class="bar2"><i style="width:${pct}%;background:${(m&&m.color)||'#666'}"></i></div>`; ml.appendChild(r); });
     const dl = $('#qDays'); dl.innerHTML = '';
-    d.days.forEach(x => { const r = document.createElement('div'); r.className='day'; const future = x.k > t;
-      r.innerHTML = `<span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· de ${fmt(x.bud)}</small></span><b style="${future?'opacity:.4':''}">${x.spent?fmt(x.spent):'—'} ${future?'':`<small class="${x.bud-x.spent<0?'neg':'pos'}">${x.bud-x.spent<0?'-':'+'}${fmt(Math.abs(x.bud-x.spent))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b>`; if(!future){ r.classList.add('tap'); r.addEventListener('click', ()=>openDay(x.k)); } dl.appendChild(r); });
+    d.days.forEach(x => { const r = document.createElement('div'); r.className='qday'; const fut = x.k > t; const sal = x.bud - x.spent; const pct = x.bud > 0 ? Math.min(100, Math.round(x.spent*100/x.bud)) : (x.spent ? 100 : 0);
+      r.innerHTML = `<div class="l"><span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· ${fut?`base ${fmt(x.base)}`:`presupuesto ${fmt(x.bud)}${x.bud!==x.base?` (base ${fmt(x.base)})`:''}`}</small></span><b>${x.spent?fmt(x.spent):'—'} ${fut?'':`<small class="${sal<0?'neg':'pos'}">${sal<0?'-':'+'}${fmt(Math.abs(sal))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b></div>${fut?'':`<div class="bar2"><i class="${sal<0?'over':''}" style="width:${pct}%"></i></div>`}`;
+      if(fut) r.classList.add('future'); else { r.classList.add('tap'); r.addEventListener('click', ()=>openDay(x.k)); }
+      dl.appendChild(r); });
   }
   function setMode(m){ qMode = m; qCur = m === 'm' ? today().slice(0,7) : qOf(today()); document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.mode===m)); renderQ(); }
   document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', ()=>setMode(b.dataset.mode)));
