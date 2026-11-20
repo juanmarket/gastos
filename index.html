@@ -206,7 +206,7 @@
   .seg button#svOut.on{color:var(--danger)} .seg button#svIn.on{color:var(--ok)}
   .savtot{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0}
   .savtot span{color:var(--muted);font-size:13px} .savtot b{font-size:22px;font-variant-numeric:tabular-nums}
-  .savtot.small b{font-size:15px;color:var(--ok)} .savtot.big{border-top:1px solid var(--edge);margin-top:4px;padding-top:8px} .savtot.big b{font-size:26px}
+  .savtot.small b{font-size:15px;color:var(--ok)} .savtot.small.neg b{color:var(--danger)} .savtot.big{border-top:1px solid var(--edge);margin-top:4px;padding-top:8px} .savtot.big b{font-size:26px}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chips button{color:var(--muted);padding:10px 14px;border-radius:999px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
   .chips button.on{color:var(--text);background:var(--glass2);box-shadow:inset 0 1px 0 var(--edge2)}
@@ -266,7 +266,8 @@
 <div class="section" id="savSection"><h2>Ahorro</h2><span><a href="#" id="savAdd" class="link">+ agregar</a> · <a href="#" id="savRemove" class="link">− quitar</a></span></div>
 <div class="budget glass" id="savBox">
   <div class="savtot"><span>Ahorrado</span><b id="savTotal">$0</b></div>
-  <div class="savtot small"><span>+ me deben (va al ahorro)</span><b id="savDebt">$0</b></div>
+  <div class="savtot small"><span>+ me deben (entra al ahorro cuando paguen)</span><b id="savDebt">$0</b></div>
+  <div class="savtot small neg"><span>− debo (sale del ahorro cuando pague)</span><b id="savOwe">$0</b></div>
   <div class="savtot big"><span>Total con deudas</span><b id="savAll">$0</b></div>
 </div>
 <div class="list glass" id="savList"></div>
@@ -413,6 +414,7 @@
     <div class="amountbox glass small"><span class="cur">$</span><input id="dbAmount" type="text" inputmode="numeric" placeholder="0"></div>
     <label>Nota</label>
     <input class="note glass" id="dbNote" type="text" placeholder="Por qué, cuándo paga…" autocomplete="off">
+    <label class="toggle glass" style="margin-top:12px"><span id="dbAhLbl">🐷 ¿Te lo deben del ahorro? (cuando te paguen va al ahorro)</span><input type="checkbox" id="dbAhorro"></label>
     <button class="btn glass primary" id="dbSave">Guardar</button>
     <button class="btn glass" id="dbPaid" style="display:none">Marcar como pagada</button>
     <button class="btn glass danger" id="dbDelete" style="display:none">Borrar</button>
@@ -937,10 +939,11 @@
   const saveSav = () => { try{ localStorage.setItem(LS_S, JSON.stringify(sav)); }catch(_){} };
   const accBal = id => sav.moves.filter(m => m.acc===id).reduce((s,m)=>s+m.amount,0);
   const savTotal = () => sav.accounts.reduce((s,a)=>s+accBal(a.id),0);
-  const debtsOwedToMe = () => (typeof debts!=='undefined' ? debts : load(LS_D, [])).filter(d => !d.paid && d.type==='me').reduce((s,d)=>s+d.amount,0);
+  const debtsAh = type => (typeof debts!=='undefined' ? debts : load(LS_D, [])).filter(d => !d.paid && d.ahorro && d.type===type).reduce((s,d)=>s+d.amount,0);
   function renderSav(){
-    const tot = savTotal(), owed = debtsOwedToMe();
-    $('#savTotal').textContent = fmt(tot); $('#savDebt').textContent = fmt(owed); $('#savAll').textContent = fmt(tot + owed);
+    const tot = savTotal(), owed = debtsAh('me'), owe = debtsAh('yo');
+    $('#savTotal').textContent = fmt(tot); $('#savDebt').textContent = fmt(owed); $('#savOwe').textContent = fmt(owe);
+    const net = tot + owed - owe; $('#savAll').textContent = fmt(net); $('#savAll').style.color = net < 0 ? 'var(--danger)' : '';
     const l = $('#savList'); l.innerHTML = '';
     if(!sav.accounts.length) l.innerHTML = '<div class="empty">Sin cuentas · toca "+ otra cuenta"</div>';
     sav.accounts.forEach(a => { const b = accBal(a.id); const r = document.createElement('div'); r.className='day tap';
@@ -998,22 +1001,22 @@
     list.slice().sort((a,b)=>(a.paid?1:0)-(b.paid?1:0) || b.ts-a.ts).forEach(d => {
       const r = document.createElement('div'); r.className = 'row' + (d.paid?' paid':'');
       r.innerHTML = `<input type="checkbox" class="chk" ${d.paid?'checked':''} title="Pagada">
-        <div class="info"><b>${esc(d.who)}</b><small>${d.type==='me'?'me debe':'le debo'} · ${dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})}${d.note?' · '+esc(d.note):''}${d.paid?' · pagada '+dayLabel(dayKey(d.paidTs||d.ts),{day:'numeric', month:'short'}):''}</small></div>
+        <div class="info"><b>${esc(d.who)}${d.ahorro?'<span class="tag">🐷 ahorro</span>':''}</b><small>${d.type==='me'?'me debe':'le debo'} · ${dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})}${d.note?' · '+esc(d.note):''}${d.paid?' · pagada '+dayLabel(dayKey(d.paidTs||d.ts),{day:'numeric', month:'short'}):''}</small></div>
         <span class="amt ${d.type==='me'?'pos':'neg'}">${d.type==='me'?'+':'-'}${fmt(d.amount)}</span>`;
-      r.querySelector('.chk').addEventListener('click', ev=>{ ev.stopPropagation(); d.paid = ev.target.checked; d.paidTs = d.paid ? Date.now() : undefined; saveDebts(); renderDebts(); toast(d.paid ? 'Pagada · ' + d.who : 'Pendiente de nuevo'); });
+      r.querySelector('.chk').addEventListener('click', ev=>{ ev.stopPropagation(); d.paid = ev.target.checked; d.paidTs = d.paid ? Date.now() : undefined; saveDebts(); renderDebts(); if(d.paid && d.ahorro) savForDebt(d); else toast(d.paid ? 'Pagada · ' + d.who : 'Pendiente de nuevo'); });
       r.addEventListener('click', ()=>openDebt(d));
       dl.appendChild(r);
     });
     $('#toggleDebtPaid').textContent = showPaid ? 'ocultar pagadas' : 'ver pagadas';
     $('#toggleDebtPaid').style.display = debts.some(d=>d.paid) ? '' : 'none';
   }
-  function setDbType(t){ dbType = t; $('#dbMeDeben').classList.toggle('on', t==='me'); $('#dbDebo').classList.toggle('on', t==='yo'); }
+  function setDbType(t){ dbType = t; $('#dbMeDeben').classList.toggle('on', t==='me'); $('#dbDebo').classList.toggle('on', t==='yo'); $('#dbAhLbl').textContent = t==='me' ? '🐷 ¿Te lo deben del ahorro? (cuando te paguen va al ahorro)' : '🐷 ¿Lo vas a sacar del ahorro? (cuando pagues sale del ahorro)'; }
   $('#dbMeDeben').addEventListener('click', ()=>setDbType('me')); $('#dbDebo').addEventListener('click', ()=>setDbType('yo'));
   function openDebt(d){
     debtId = d ? d.id : null;
     $('#dbTitle').textContent = d ? (d.type==='me' ? d.who + ' me debe' : 'Le debo a ' + d.who) : 'Nueva deuda o préstamo';
     setDbType(d ? d.type : 'me');
-    $('#dbWho').value = d ? d.who : ''; setMoney($('#dbAmount'), d ? d.amount : 0); $('#dbNote').value = d ? (d.note||'') : '';
+    $('#dbWho').value = d ? d.who : ''; setMoney($('#dbAmount'), d ? d.amount : 0); $('#dbNote').value = d ? (d.note||'') : ''; $('#dbAhorro').checked = !!(d && d.ahorro);
     $('#dbPaid').style.display = d && !d.paid ? '' : 'none'; $('#dbDelete').style.display = d ? '' : 'none';
     dbmodal.classList.add('open'); if(!d) setTimeout(()=>$('#dbWho').focus(), 50);
   }
@@ -1023,11 +1026,14 @@
     const who = $('#dbWho').value.trim(), amount = Number(digits($('#dbAmount').value)) || 0;
     if(!who || !amount){ toast('Falta el nombre o el valor'); return; }
     const d = debts.find(x=>x.id===debtId);
-    if(d){ Object.assign(d, {who, amount, note:$('#dbNote').value.trim(), type:dbType}); }
-    else debts.unshift({id:'d'+Date.now(), ts:Date.now(), who, amount, note:$('#dbNote').value.trim(), type:dbType, paid:false});
+    const ah = $('#dbAhorro').checked;
+    if(d){ Object.assign(d, {who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah}); }
+    else debts.unshift({id:'d'+Date.now(), ts:Date.now(), who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah, paid:false});
     saveDebts(); renderDebts(); dbmodal.classList.remove('open');
   });
-  $('#dbPaid').addEventListener('click', ()=>{ const d = debts.find(x=>x.id===debtId); if(d){ d.paid = true; d.paidTs = Date.now(); saveDebts(); renderDebts(); } dbmodal.classList.remove('open'); });
+  $('#dbPaid').addEventListener('click', ()=>{ const d = debts.find(x=>x.id===debtId); dbmodal.classList.remove('open'); if(d){ d.paid = true; d.paidTs = Date.now(); saveDebts(); renderDebts(); if(d.ahorro) savForDebt(d); } });
+  // deuda pagada que va o sale del ahorro: abre la ventana de ahorro ya llena para elegir la cuenta
+  function savForDebt(d){ openSav(d.type==='me' ? 'in' : 'out'); setMoney($('#svAmount'), d.amount); $('#svNote').value = d.type==='me' ? d.who + ' me pagó' : 'Le pagué a ' + d.who; $('#svTitle').textContent = d.type==='me' ? 'Pagada · ¿a qué cuenta entra?' : 'Pagada · ¿de qué cuenta sale?'; }
   $('#dbDelete').addEventListener('click', ()=>{ if(!confirm('¿Borrar esta deuda?')) return; debts = debts.filter(x=>x.id!==debtId); saveDebts(); renderDebts(); dbmodal.classList.remove('open'); });
   $('#dbClose').addEventListener('click', ()=>dbmodal.classList.remove('open'));
   dbmodal.addEventListener('click', ev=>{ if(ev.target===dbmodal) dbmodal.classList.remove('open'); });
