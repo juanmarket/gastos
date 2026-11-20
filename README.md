@@ -46,13 +46,17 @@ El botón **📊 Informes** (junto a Cuadre) abre el informe con dos pestañas, 
 
 En ⚙︎ cada método tiene un check **TC** (tarjeta de crédito); vienen marcadas Bancolombia TC, Rappi Crédito y Nu. El gasto con tarjeta entra al presupuesto del día como cualquier otro, pero además se suma aparte, **cada tarjeta por separado** y **sin contar lo marcado "del ahorro"** (eso no se paga del presupuesto): en la pantalla principal ("Tarjetas quincena: Rappi Crédito $75.000 · Nu $120.000") y en el informe de quincena, con un botón Copiar por tarjeta para pasar ese valor al bolsillo con el que la pagas.
 
+## Ahorro
+
+Sección **Ahorro** en la pantalla principal (y en la barra inferior): cuánto tienes ahorrado y en qué cuenta (Bancolombia, Nu, Rappi, Efectivo; "+ otra cuenta" para agregar más). Con **+ agregar** y **− quitar** registras movimientos con nota; tocar una cuenta muestra su historial (se puede borrar un movimiento, cambiar el nombre o quitar la cuenta). Arriba sale **Ahorrado**, **+ me deben** (las deudas pendientes a tu favor, que van al ahorro cuando te paguen) y **Total con deudas**. Es independiente del presupuesto diario y de "Del ahorro" en los gastos.
+
 ## Deudas y préstamos
 
 Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: quién, cuánto, si me deben o debo, y una nota. Arriba sale el total "me deben $X · debo $Y". El check marca pagada; "ver pagadas" muestra el historial. Tocar una la edita.
 
 ## Barra inferior
 
-Abajo hay una barra fija con **Inicio** (vuelve arriba), **Informes**, **Deudas** (baja a la sección) y **Ajustes**. Cierra cualquier ventana abierta antes de ir.
+Abajo hay una barra fija con **Inicio** (vuelve arriba), **Informes**, **Ahorro**, **Deudas** (bajan a la sección) y **Ajustes**. Cierra cualquier ventana abierta antes de ir.
 
 ## Detalle por método
 

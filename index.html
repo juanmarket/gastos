@@ -203,6 +203,14 @@
   .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px;border-radius:999px;font-weight:700;font-size:14px}
   .seg button.on{background:var(--glass2);color:var(--text);box-shadow:inset 0 1px 0 var(--edge2)}
   .seg button#dbDebo.on{color:var(--danger)} .seg button#dbMeDeben.on{color:var(--ok)}
+  .seg button#svOut.on{color:var(--danger)} .seg button#svIn.on{color:var(--ok)}
+  .savtot{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0}
+  .savtot span{color:var(--muted);font-size:13px} .savtot b{font-size:22px;font-variant-numeric:tabular-nums}
+  .savtot.small b{font-size:15px;color:var(--ok)} .savtot.big{border-top:1px solid var(--edge);margin-top:4px;padding-top:8px} .savtot.big b{font-size:26px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips button{color:var(--muted);padding:10px 14px;border-radius:999px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .chips button.on{color:var(--text);background:var(--glass2);box-shadow:inset 0 1px 0 var(--edge2)}
+  .chips button i{width:9px;height:9px;border-radius:50%;display:inline-block}
   .row .amt.pos{color:var(--ok)} .row .amt.neg{color:var(--danger)}
   .row.paid{opacity:.5} .row.paid .info b{text-decoration:line-through}
   .cuadre .note{margin-bottom:0}
@@ -255,6 +263,15 @@
 <div class="section" id="repSection" style="display:none"><h2>Por reponer al ahorro</h2><span id="repTotal"></span></div>
 <div class="list glass" id="repList" style="display:none"></div>
 
+<div class="section" id="savSection"><h2>Ahorro</h2><span><a href="#" id="savAdd" class="link">+ agregar</a> · <a href="#" id="savRemove" class="link">− quitar</a></span></div>
+<div class="budget glass" id="savBox">
+  <div class="savtot"><span>Ahorrado</span><b id="savTotal">$0</b></div>
+  <div class="savtot small"><span>+ me deben (va al ahorro)</span><b id="savDebt">$0</b></div>
+  <div class="savtot big"><span>Total con deudas</span><b id="savAll">$0</b></div>
+</div>
+<div class="list glass" id="savList"></div>
+<p class="hint" style="text-align:center"><a href="#" id="savNewAcc" class="link">+ otra cuenta</a> · toca una cuenta para ver sus movimientos</p>
+
 <div class="section" id="debtsSection"><h2>Deudas</h2><span><span id="debtTotals"></span> <a href="#" id="addDebt" class="link">+ agregar</a></span></div>
 <div class="list glass" id="debtList"></div>
 <p class="hint" style="text-align:center"><a href="#" id="toggleDebtPaid" class="link">ver pagadas</a></p>
@@ -266,6 +283,7 @@
 <nav class="tabbar glass">
   <button data-go="top"><i>🏠</i><span>Inicio</span></button>
   <button data-go="report"><i>📊</i><span>Informes</span></button>
+  <button data-go="savings"><i>🐷</i><span>Ahorro</span></button>
   <button data-go="debts"><i>🤝</i><span>Deudas</span></button>
   <button data-go="settings"><i>⚙︎</i><span>Ajustes</span></button>
 </nav>
@@ -350,6 +368,37 @@
     <button class="btn glass primary" id="dSave">Guardar</button>
     <button class="btn glass danger" id="dDelete">Borrar este gasto</button>
     <button class="btn glass" id="dClose">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal" id="savModal">
+  <div class="sheet glass cuadre">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2 id="svTitle">Ahorro</h2>
+    <div class="seg glass"><button id="svIn" class="on">Agregar</button><button id="svOut">Quitar</button></div>
+    <label>En qué cuenta</label>
+    <div class="chips" id="svAccs"></div>
+    <label>Cuánto</label>
+    <div class="amountbox glass small"><span class="cur">$</span><input id="svAmount" type="text" inputmode="numeric" placeholder="0"></div>
+    <label>Nota</label>
+    <input class="note glass" id="svNote" type="text" placeholder="De la quincena, para el viaje…" autocomplete="off">
+    <button class="btn glass primary" id="svSave">Guardar</button>
+  </div>
+</div>
+
+<div class="modal" id="savAccModal">
+  <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2 id="saTitle">Cuenta</h2>
+    <div class="kv glass">
+      <div><span>Saldo</span><b id="saBal">$0</b></div>
+      <div><span>Entró</span><b id="saIn">$0</b><small>en total</small></div>
+      <div><span>Salió</span><b id="saOut">$0</b><small>en total</small></div>
+    </div>
+    <label>Movimientos</label>
+    <div class="list glass" id="saList"></div>
+    <button class="btn glass" id="saRename">Cambiar nombre</button>
+    <button class="btn glass danger" id="saDelete">Quitar esta cuenta</button>
   </div>
 </div>
 
@@ -881,11 +930,65 @@
 
   // ---- deudas y préstamos (aparte del presupuesto diario)
   const LS_D = 'gastos.debts';
+  // ---- ahorro: cuentas y movimientos
+  const LS_S = 'gastos.savings';
+  const DEFAULT_SAV = { accounts:[{id:'s-bcol',name:'Bancolombia',color:'#ffd400'},{id:'s-nu',name:'Nu',color:'#820ad1'},{id:'s-rappi',name:'Rappi',color:'#ff441f'},{id:'s-cash',name:'Efectivo',color:'#3ccf7a'}], moves:[] };
+  let sav = loadObj(LS_S, null) || JSON.parse(JSON.stringify(DEFAULT_SAV)); if(!Array.isArray(sav.accounts)) sav.accounts = []; if(!Array.isArray(sav.moves)) sav.moves = [];
+  const saveSav = () => { try{ localStorage.setItem(LS_S, JSON.stringify(sav)); }catch(_){} };
+  const accBal = id => sav.moves.filter(m => m.acc===id).reduce((s,m)=>s+m.amount,0);
+  const savTotal = () => sav.accounts.reduce((s,a)=>s+accBal(a.id),0);
+  const debtsOwedToMe = () => (typeof debts!=='undefined' ? debts : load(LS_D, [])).filter(d => !d.paid && d.type==='me').reduce((s,d)=>s+d.amount,0);
+  function renderSav(){
+    const tot = savTotal(), owed = debtsOwedToMe();
+    $('#savTotal').textContent = fmt(tot); $('#savDebt').textContent = fmt(owed); $('#savAll').textContent = fmt(tot + owed);
+    const l = $('#savList'); l.innerHTML = '';
+    if(!sav.accounts.length) l.innerHTML = '<div class="empty">Sin cuentas · toca "+ otra cuenta"</div>';
+    sav.accounts.forEach(a => { const b = accBal(a.id); const r = document.createElement('div'); r.className='day tap';
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${a.color};margin-right:8px"></span>${esc(a.name)}</span><b style="${b<0?'color:var(--danger)':''}">${fmt(b)}</b>`;
+      r.addEventListener('click', ()=>openSavAcc(a.id)); l.appendChild(r); });
+  }
+  const savModal = $('#savModal'); let svType = 'in', svAcc = null;
+  const svColor = () => { const m = methods.find(x => x.name.toLowerCase().startsWith((svAcc||'').toLowerCase())); return m ? m.color : '#4f8cff'; };
+  function setSvType(t){ svType = t; $('#svIn').classList.toggle('on', t==='in'); $('#svOut').classList.toggle('on', t==='out'); $('#svTitle').textContent = t==='in' ? 'Agregar al ahorro' : 'Quitar del ahorro'; }
+  $('#svIn').addEventListener('click', ()=>setSvType('in')); $('#svOut').addEventListener('click', ()=>setSvType('out'));
+  function renderSvAccs(){ const c = $('#svAccs'); c.innerHTML = ''; sav.accounts.forEach(a => { const b = document.createElement('button'); b.className = 'glass' + (a.id===svAcc?' on':''); b.innerHTML = `<i style="background:${a.color}"></i>${esc(a.name)} <small>${fmt(accBal(a.id))}</small>`; b.addEventListener('click', ()=>{ svAcc = a.id; renderSvAccs(); }); c.appendChild(b); }); }
+  function openSav(t){ setSvType(t); if(!svAcc || !sav.accounts.find(a=>a.id===svAcc)) svAcc = sav.accounts[0] ? sav.accounts[0].id : null; renderSvAccs(); $('#svAmount').value=''; $('#svNote').value=''; savModal.classList.add('open'); setTimeout(()=>$('#svAmount').focus(), 50); }
+  $('#savAdd').addEventListener('click', ev=>{ ev.preventDefault(); openSav('in'); });
+  $('#savRemove').addEventListener('click', ev=>{ ev.preventDefault(); openSav('out'); });
+  fmtInput($('#svAmount'));
+  $('#svSave').addEventListener('click', ()=>{
+    const amt = Number(digits($('#svAmount').value)) || 0; if(!amt){ toast('Escribe un valor'); return; } if(!svAcc){ toast('Elige una cuenta'); return; }
+    sav.moves.unshift({id:'s'+Date.now(), ts:Date.now(), acc:svAcc, amount: svType==='in' ? amt : -amt, note:$('#svNote').value.trim()});
+    saveSav(); renderSav(); savModal.classList.remove('open');
+    const a = sav.accounts.find(x=>x.id===svAcc); toast((svType==='in' ? 'Ahorrado ' : 'Sacado ') + fmt(amt) + ' · ' + (a?a.name:'') + ' · total ' + fmt(savTotal()));
+  });
+  $('#savNewAcc').addEventListener('click', ev=>{ ev.preventDefault(); const n = prompt('Nombre de la cuenta de ahorro'); if(!n || !n.trim()) return; const cols = ['#4f8cff','#ff9f0a','#e6007e','#3ccf7a','#820ad1']; sav.accounts.push({id:'s'+Date.now(), name:n.trim(), color:cols[sav.accounts.length % cols.length]}); saveSav(); renderSav(); });
+  // historial de una cuenta
+  const savAccModal = $('#savAccModal'); let saOpen = null;
+  function renderSavAcc(){
+    const a = sav.accounts.find(x=>x.id===saOpen); if(!a) return;
+    const ms = sav.moves.filter(m => m.acc===a.id).sort((x,y)=>y.ts-x.ts);
+    $('#saTitle').innerHTML = `<span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${a.color};margin-right:8px;vertical-align:2px"></span>${esc(a.name)}`;
+    $('#saBal').textContent = fmt(accBal(a.id)); $('#saIn').textContent = fmt(ms.filter(m=>m.amount>0).reduce((s,m)=>s+m.amount,0)); $('#saOut').textContent = fmt(-ms.filter(m=>m.amount<0).reduce((s,m)=>s+m.amount,0));
+    const l = $('#saList'); l.innerHTML = '';
+    if(!ms.length) l.innerHTML = '<div class="empty">Sin movimientos todavía</div>';
+    ms.forEach(m => { const r = document.createElement('div'); r.className='row';
+      r.innerHTML = `<span class="dot" style="background:${m.amount>0?'var(--ok)':'var(--danger)'};color:${m.amount>0?'var(--ok)':'var(--danger)'}"></span><div class="info"><b>${m.amount>0?'Agregado':'Sacado'}</b><small>${dayLabel(dayKey(m.ts),{weekday:'short', day:'numeric', month:'short'})} · ${timeLabel(m.ts)}${m.note?' · '+esc(m.note):''}</small></div><span class="amt" style="color:${m.amount>0?'var(--ok)':'var(--danger)'}">${m.amount>0?'+':'-'}${fmt(Math.abs(m.amount))}</span><button class="del" title="Borrar">×</button>`;
+      r.querySelector('.del').addEventListener('click', ()=>{ if(!confirm('¿Borrar este movimiento?')) return; sav.moves = sav.moves.filter(x=>x.id!==m.id); saveSav(); renderSav(); renderSavAcc(); });
+      l.appendChild(r); });
+  }
+  function openSavAcc(id){ saOpen = id; renderSavAcc(); savAccModal.classList.add('open'); }
+  $('#saRename').addEventListener('click', ()=>{ const a = sav.accounts.find(x=>x.id===saOpen); if(!a) return; const n = prompt('Nuevo nombre', a.name); if(!n || !n.trim()) return; a.name = n.trim(); saveSav(); renderSav(); renderSavAcc(); });
+  $('#saDelete').addEventListener('click', ()=>{ const a = sav.accounts.find(x=>x.id===saOpen); if(!a) return; const b = accBal(a.id); if(!confirm(`¿Quitar la cuenta ${a.name}${b?` con saldo ${fmt(b)}`:''}? Se borran sus movimientos.`)) return; sav.accounts = sav.accounts.filter(x=>x.id!==saOpen); sav.moves = sav.moves.filter(m=>m.acc!==saOpen); saveSav(); renderSav(); savAccModal.classList.remove('open'); });
+  savModal.addEventListener('click', ev=>{ if(ev.target===savModal) savModal.classList.remove('open'); });
+  savAccModal.addEventListener('click', ev=>{ if(ev.target===savAccModal) savAccModal.classList.remove('open'); });
+
   let debts = load(LS_D, []); let showPaid = false, debtId = null, dbType = 'me';
   const saveDebts = () => { try{ localStorage.setItem(LS_D, JSON.stringify(debts)); }catch(_){} };
   const dbmodal = $('#debtModal');
   fmtInput($('#dbAmount'));
   function renderDebts(){
+    renderSav();
     const open = debts.filter(d => !d.paid);
     const me = open.filter(d=>d.type==='me').reduce((s,d)=>s+d.amount,0), yo = open.filter(d=>d.type==='yo').reduce((s,d)=>s+d.amount,0);
     $('#debtTotals').textContent = (me ? 'me deben ' + fmt(me) : '') + (me && yo ? ' · ' : '') + (yo ? 'debo ' + fmt(yo) : '');
@@ -1082,14 +1185,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg, savings: sav}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.payCfg.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.pay.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(d.savings && Array.isArray(d.savings.accounts)){ sav = d.savings; if(!Array.isArray(sav.moves)) sav.moves = []; saveSav(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{
@@ -1117,6 +1220,7 @@
     if(g==='top') window.scrollTo({top:0, behavior:'smooth'});
     else if(g==='report') $('#openQ').click();
     else if(g==='debts') $('#debtsSection').scrollIntoView({behavior:'smooth', block:'start'});
+    else if(g==='savings') $('#savSection').scrollIntoView({behavior:'smooth', block:'start'});
     else if(g==='settings') $('#openSettings').click();
   }));
   renderMethods(); render(); renderDebts();
