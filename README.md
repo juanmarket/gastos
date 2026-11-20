@@ -30,6 +30,8 @@ La regla es la misma del Excel: **presupuesto de hoy = base del día + saldo de 
 
 El botón **Cuadre** cierra el día: muestra gastado, saldo y lo que salió del ahorro, deja fijar a mano el presupuesto de hoy o el de mañana (si no lo tocas, es automático), y copia el gasto real para pegarlo en el Excel.
 
+Dentro del cuadre, **➕ Añadir al presupuesto diario** sirve cuando entra plata extra (una devolución, una venta, un regalo): pones cuánto y de dónde, y se suma al presupuesto de hoy sin tener que calcularlo a mano. No cuenta como gasto ni toca el ahorro; si sobra, pasa a mañana como siempre. En la home el presupuesto muestra "(+ $50.000 que entró)".
+
 En "Últimos 7 días" cada día muestra gastado, presupuesto y saldo (verde si sobró, rojo si faltó). Con "ver la quincena completa" la lista se despliega ahí mismo desde el día de pago.
 
 ## Del ahorro

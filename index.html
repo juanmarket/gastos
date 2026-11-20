@@ -297,6 +297,8 @@
     <h2 id="cTitle">Cuadre de hoy</h2>
     <label>Presupuesto de hoy <span id="cTodayAuto"></span></label>
     <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetToday" type="text" inputmode="numeric" placeholder="0"></div>
+    <button class="btn glass" id="cAddIncome" style="margin-top:8px">➕ Añadir al presupuesto diario</button>
+    <p class="hint" id="cIncomes" style="display:none"></p>
     <div class="kv glass">
       <div><span>Gastado</span><b id="cSpent">$0</b></div>
       <div><span>Saldo</span><b id="cLeft">$0</b></div>
@@ -308,6 +310,20 @@
     <p class="hint" id="cTomorrowHint"></p>
     <button class="btn glass primary" id="cSave">Guardar</button>
     <button class="btn glass" id="cClose">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal" id="incModal">
+  <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2>Añadir al presupuesto</h2>
+    <p class="meta" id="incInfo"></p>
+    <label>¿Cuánto entró?</label>
+    <div class="amountbox glass small"><span class="cur">$</span><input id="incAmount" type="text" inputmode="numeric" placeholder="0"></div>
+    <label>De dónde (opcional)</label>
+    <input class="note glass" id="incNote" type="text" placeholder="me devolvieron, venta, regalo…" autocomplete="off" enterkeyhint="done">
+    <p class="hint">Se suma al presupuesto de hoy y, si sobra, pasa a mañana como siempre. No cuenta como gasto ni toca el ahorro.</p>
+    <button class="btn glass primary" id="incSave">Sumar al presupuesto</button>
   </div>
 </div>
 
@@ -727,7 +743,7 @@
     $('#cTodayAuto').textContent = isManual(t) ? '(fijado a mano)' : '(automático)';
     setMoney($('#cBudgetToday'), budgetOf(t));
     $('#cAhorro').textContent = fmt(ahorroOn(t));
-    refreshCuadre(true);
+    refreshCuadre(true); refreshIncomes();
     cmodal.classList.add('open');
   }
   function refreshCuadre(fillTomorrow){
@@ -756,6 +772,36 @@
     catch(_){ const ta = document.createElement('textarea'); ta.value = v; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} document.body.removeChild(ta); }
     toast('Copiado: ' + v);
   });
+  // ---- ingresos extra que se suman al presupuesto del día
+  const LS_INC = 'gastos.incomes';
+  let incomes = load(LS_INC, []);
+  const saveIncomes = () => { try{ localStorage.setItem(LS_INC, JSON.stringify(incomes)); }catch(_){} };
+  const incomesOn = k => incomes.filter(i => i.day===k);
+  const incModal = $('#incModal'); fmtInput($('#incAmount'));
+  function refreshIncomes(){
+    const l = incomesOn(today()), el = $('#cIncomes');
+    if(!l.length){ el.style.display='none'; return; }
+    el.style.display=''; el.textContent = 'Hoy sumaste ' + l.map(i => fmt(i.amount) + (i.note ? ' (' + i.note + ')' : '')).join(' + ') + ' al presupuesto.';
+  }
+  $('#cAddIncome').addEventListener('click', ()=>{
+    const t = today();
+    $('#incInfo').textContent = 'Presupuesto de hoy: ' + fmt(budgetOf(t)) + ' · se sumará lo que pongas.';
+    setMoney($('#incAmount'), 0); $('#incNote').value = '';
+    incModal.classList.add('open'); setTimeout(()=>$('#incAmount').focus(), 50);
+  });
+  $('#incNote').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); $('#incSave').click(); } });
+  $('#incSave').addEventListener('click', ()=>{
+    const amt = Number(digits($('#incAmount').value)) || 0; if(!amt){ toast('Pon cuánto entró'); return; }
+    const t = today(), note = $('#incNote').value.trim();
+    clearMemo(); const cur = budgetOf(t);
+    budgets[t] = cur + amt;                                // queda fijado a mano con el ingreso sumado
+    incomes.push({id:'i'+Date.now(), ts:Date.now(), day:t, amount:amt, note});
+    saveBudgets(); saveIncomes(); clearMemo(); render();
+    incModal.classList.remove('open');
+    if(cmodal.classList.contains('open')){ setMoney($('#cBudgetToday'), budgetOf(t)); $('#cTodayAuto').textContent = '(fijado a mano)'; refreshCuadre(true); refreshIncomes(); }
+    toast('Presupuesto de hoy: ' + fmt(budgetOf(t)) + ' (+' + fmt(amt) + ')');
+  });
+  incModal.addEventListener('click', ev=>{ if(ev.target===incModal) incModal.classList.remove('open'); });
   $('#cClose').addEventListener('click', ()=>cmodal.classList.remove('open'));
   cmodal.addEventListener('click', ev=>{ if(ev.target===cmodal) cmodal.classList.remove('open'); });
 
@@ -858,7 +904,8 @@
       const left = bud - spent, pct = bud > 0 ? Math.min(100, Math.round(spent / bud * 100)) : 100;
       bb.classList.remove('nobudget'); bb.classList.toggle('over', left < 0);
       const b0 = baseOf(t), dlt = bud - b0;
-      $('#budgetOf').textContent = 'de ' + fmt(bud) + (isManual(t) ? ' (fijado)' : dlt ? ` (base ${fmt(b0)} ${dlt>0?'+ sobró':'− faltó'} ${fmt(Math.abs(dlt))})` : '');
+      const inc = (typeof incomes!=='undefined' ? incomes : []).filter(i => i.day===t).reduce((s,i)=>s+i.amount,0);
+      $('#budgetOf').textContent = 'de ' + fmt(bud) + (inc ? ` (+ ${fmt(inc)} que entró)` : isManual(t) ? ' (fijado)' : dlt ? ` (base ${fmt(b0)} ${dlt>0?'+ sobró':'− faltó'} ${fmt(Math.abs(dlt))})` : '');
       $('#budgetLeft').textContent = left >= 0 ? 'Quedan ' + fmt(left) : 'Te pasaste ' + fmt(-left);
       $('#budgetBar').style.width = pct + '%';
     }
@@ -1191,14 +1238,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg, savings: sav}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg, savings: sav, incomes}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.pay.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(d.savings && Array.isArray(d.savings.accounts)){ sav = d.savings; if(!Array.isArray(sav.moves)) sav.moves = []; saveSav(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.pay.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(d.savings && Array.isArray(d.savings.accounts)){ sav = d.savings; if(!Array.isArray(sav.moves)) sav.moves = []; saveSav(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } if(Array.isArray(d.incomes)){ incomes = d.incomes; saveIncomes(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{
