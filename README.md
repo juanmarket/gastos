@@ -50,6 +50,14 @@ En ⚙︎ cada método tiene un check **TC** (tarjeta de crédito); vienen marca
 
 Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: quién, cuánto, si me deben o debo, y una nota. Arriba sale el total "me deben $X · debo $Y". El check marca pagada; "ver pagadas" muestra el historial. Tocar una la edita.
 
+## Barra inferior
+
+Abajo hay una barra fija con **Inicio** (vuelve arriba), **Informes**, **Deudas** (baja a la sección) y **Ajustes**. Cierra cualquier ventana abierta antes de ir.
+
+## Detalle por método
+
+En el informe, toca cualquier tarjeta o método para ver sus gastos del periodo agrupados **día por día**, con el subtotal de cada día, el total del presupuesto, el promedio por gasto y lo del ahorro aparte. Cada gasto abre su detalle.
+
 ## Detalle de un gasto
 
 Toca cualquier gasto de la lista de hoy para ver y editar la nota completa, la hora y la ubicación donde pagaste (con enlace a Mapas). Se puede borrar desde ahí. Para días anteriores, toca el día en "Últimos 7 días" o en el día a día del informe de quincena: abre la lista de gastos de esa fecha y desde ahí cada gasto.

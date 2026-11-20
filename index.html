@@ -25,7 +25,7 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro",Inter,system-ui,sans-serif;}
-  body{padding:calc(env(safe-area-inset-top, 0px) + 30px) 16px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;min-height:100vh;position:relative}
+  body{padding:calc(env(safe-area-inset-top, 0px) + 30px) 16px calc(env(safe-area-inset-bottom, 0px) + 92px);max-width:520px;margin:0 auto;min-height:100vh;position:relative}
 
   /* color blobs behind the glass */
   body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
@@ -84,7 +84,12 @@
   .day b{font-variant-numeric:tabular-nums}
   .empty{padding:18px;color:var(--muted);text-align:center;font-size:14px}
 
-  .toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);padding:12px 16px;border-radius:22px;line-height:1.3;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;display:flex;gap:14px;align-items:center;z-index:50;max-width:92vw;color:var(--text)}
+  .tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 10px);width:calc(100% - 24px);max-width:496px;display:flex;padding:6px;border-radius:999px;z-index:30}
+  .tabbar button{flex:1;background:transparent;border:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 4px;border-radius:999px;font-size:11px;font-weight:700}
+  .tabbar button i{font-style:normal;font-size:20px;line-height:1}
+  .tabbar button:active{transform:scale(.94);background:rgba(127,127,140,.14)}
+  .tabbar button.on{color:var(--text);background:var(--glass2);box-shadow:inset 0 1px 0 var(--edge2)}
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom, 0px) + 84px);transform:translateX(-50%) translateY(20px);padding:12px 16px;border-radius:22px;line-height:1.3;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;display:flex;gap:14px;align-items:center;z-index:50;max-width:92vw;color:var(--text)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
   .toast button{background:var(--accent);color:#fff;border:0;padding:8px 14px;border-radius:999px;font-weight:700}
 
@@ -151,6 +156,8 @@
   .qday .l small{font-size:12px;color:var(--muted)} .qday .l b{font-variant-numeric:tabular-nums}
   .qday.tap{cursor:pointer} .qday.tap:active{background:rgba(127,127,140,.12)}
   .qday.future{opacity:.45}
+  .dayhead{display:flex;justify-content:space-between;padding:8px 14px;background:rgba(127,127,140,.10);font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .dayhead b{color:var(--text);font-variant-numeric:tabular-nums}
   .row{cursor:pointer}
   .row:active{background:rgba(127,127,140,.12)}
 
@@ -247,13 +254,20 @@
 <div class="section" id="repSection" style="display:none"><h2>Por reponer al ahorro</h2><span id="repTotal"></span></div>
 <div class="list glass" id="repList" style="display:none"></div>
 
-<div class="section"><h2>Deudas</h2><span><span id="debtTotals"></span> <a href="#" id="addDebt" class="link">+ agregar</a></span></div>
+<div class="section" id="debtsSection"><h2>Deudas</h2><span><span id="debtTotals"></span> <a href="#" id="addDebt" class="link">+ agregar</a></span></div>
 <div class="list glass" id="debtList"></div>
 <p class="hint" style="text-align:center"><a href="#" id="toggleDebtPaid" class="link">ver pagadas</a></p>
 
 <div class="section"><h2 id="weekTitle">Últimos 7 días</h2><span id="weekTotal"></span></div>
 <div class="list glass" id="weekList"></div>
 <p class="hint" style="text-align:center"><a href="#" id="weekMore" class="link">ver la quincena completa</a></p>
+
+<nav class="tabbar glass">
+  <button data-go="top"><i>🏠</i><span>Inicio</span></button>
+  <button data-go="report"><i>📊</i><span>Informes</span></button>
+  <button data-go="debts"><i>🤝</i><span>Deudas</span></button>
+  <button data-go="settings"><i>⚙︎</i><span>Ajustes</span></button>
+</nav>
 
 <div class="toast glass" id="toast"><span id="toastMsg"></span><button id="undoBtn" style="display:none">Deshacer</button></div>
 
@@ -300,6 +314,22 @@
     <p class="hint" id="dyAh" style="display:none">🐷 Del ahorro ese día: <b id="dyAhVal"></b> (no cuenta en el gastado)</p>
     <label>Gastos</label>
     <div class="list glass" id="dayList"></div>
+    <p class="hint">Toca un gasto para ver o editar su detalle.</p>
+  </div>
+</div>
+
+<div class="modal" id="methModal">
+  <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2 id="mtTitle">Método</h2>
+    <p class="hint" id="mtWhen" style="margin-top:-6px"></p>
+    <div class="kv glass">
+      <div><span>Del presupuesto</span><b id="mtSum">$0</b><small id="mtN"></small></div>
+      <div><span>Promedio por gasto</span><b id="mtAvg">$0</b></div>
+      <div><span>Del ahorro</span><b id="mtAh">$0</b><small>aparte</small></div>
+    </div>
+    <label>Día por día</label>
+    <div class="list glass" id="mtList"></div>
     <p class="hint">Toca un gasto para ver o editar su detalle.</p>
   </div>
 </div>
@@ -376,9 +406,9 @@
       <div><span>Por reponer</span><b id="qRep">$0</b><small>pendiente de devolver</small></div>
     </div>
 
-    <label>Tarjetas de crédito · para pagar del presupuesto</label>
+    <label>Tarjetas de crédito · para pagar del presupuesto · toca una para ver día por día</label>
     <div class="list glass" id="qCards"></div>
-    <label>Por método · % de lo gastado (sin lo del ahorro)</label>
+    <label>Por método · % de lo gastado (sin lo del ahorro) · toca uno para ver día por día</label>
     <div class="list glass" id="qMethods"></div>
     <label>Día a día · barra = gastado vs presupuesto del día</label>
     <div class="list glass" id="qDays"></div>
@@ -706,6 +736,28 @@
     es.forEach(e => l.appendChild(entryRow(e)));
   }
   function openDay(k){ dayOpen = k; renderDay(); dayModal.classList.add('open'); }
+
+  // ---- detalle de un método en un periodo (gastos agrupados por día)
+  const methModal = $('#methModal'); let methOpen = null;
+  function renderMeth(){
+    if(!methOpen) return; const {id, a, b, label} = methOpen; const m = methods.find(x=>x.id===id);
+    const es = entries.filter(e => e.method===id && dayKey(e.ts)>=a && dayKey(e.ts)<=b).sort((x,y)=>y.ts-x.ts);
+    const bud = es.filter(e=>!isAhorro(e)), sum = bud.reduce((s,e)=>s+e.amount,0), ah = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0);
+    $('#mtTitle').innerHTML = `<span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px;vertical-align:2px"></span>${esc(m ? m.name : id)}`;
+    $('#mtWhen').textContent = label;
+    $('#mtSum').textContent = fmt(sum); $('#mtN').textContent = bud.length + ' gasto' + (bud.length===1?'':'s');
+    $('#mtAvg').textContent = bud.length ? fmt(Math.round(sum/bud.length)) : '—';
+    $('#mtAh').textContent = ah ? fmt(ah) : '—'; $('#mtAh').style.color = ah ? '#ff9f0a' : '';
+    const l = $('#mtList'); l.innerHTML = '';
+    if(!es.length){ l.innerHTML = '<div class="empty">Sin gastos con este método en el periodo</div>'; return; }
+    let cur = null;
+    es.forEach(e => { const k = dayKey(e.ts);
+      if(k !== cur){ cur = k; const ds = es.filter(x => dayKey(x.ts)===k && !isAhorro(x)).reduce((s,x)=>s+x.amount,0); const h = document.createElement('div'); h.className='dayhead';
+        const da = es.filter(x => dayKey(x.ts)===k && isAhorro(x)).reduce((s,x)=>s+x.amount,0); h.innerHTML = `<span>${dayLabel(k,{weekday:'short', day:'numeric', month:'short'})}</span><b>${ds?fmt(ds):''}${da?`<small style="color:#ff9f0a;font-weight:600"> 🐷 ${fmt(da)} del ahorro</small>`:''}</b>`; l.appendChild(h); }
+      l.appendChild(entryRow(e)); });
+  }
+  function openMeth(id, a, b, label){ methOpen = {id, a, b, label}; renderMeth(); methModal.classList.add('open'); }
+  methModal.addEventListener('click', ev=>{ if(ev.target===methModal) methModal.classList.remove('open'); });
   dayModal.addEventListener('click', ev=>{ if(ev.target===dayModal) dayModal.classList.remove('open'); });
 
   function openDetail(e){
@@ -775,6 +827,7 @@
     if(!todays.length){ tl.innerHTML = '<div class="empty">Nada todavía. Escribe un valor y toca con qué pagaste.</div>'; }
     todays.forEach(e => tl.appendChild(entryRow(e)));
     if(dayModal.classList.contains('open')) renderDay();
+    if(methModal.classList.contains('open')) renderMeth();
 
     // por reponer al ahorro (todas las fechas)
     const rep = entries.filter(e => e.ahorro && !e.repuesto);
@@ -929,13 +982,14 @@
     if(!cards.length) cl.innerHTML = '<div class="empty">Marca tus tarjetas de crédito con "TC" en ⚙︎</div>';
     cards.forEach(m => { const es = entries.filter(e => e.method===m.id && dayKey(e.ts)>=d.a && dayKey(e.ts)<=d.b); const sum = es.filter(e=>!isAhorro(e)).reduce((s,e)=>s+e.amount,0), ahm = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0), n = es.filter(e=>!isAhorro(e)).length; const r = document.createElement('div'); r.className='day';
       r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ahm?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ahm)} del ahorro, no va aquí</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
+      r.classList.add('tap'); r.addEventListener('click', ()=>openMeth(m.id, d.a, d.b, curLabel()));
       cl.appendChild(r); });
-    cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ()=>{ copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
+    cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ev=>{ ev.stopPropagation(); copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
     const ml = $('#qMethods'); ml.innerHTML = '';
     const ms = Object.entries(d.byMethod).sort((x,y)=>y[1].s-x[1].s); const tot = ms.reduce((s,[,v])=>s+v.s,0);
     if(!ms.length) ml.innerHTML = '<div class="empty">Sin gastos en este periodo</div>';
     ms.forEach(([name, v]) => { const m = methods.find(x=>x.id===v.id); const pct = tot ? Math.round(v.s*100/tot) : 0; const r = document.createElement('div'); r.className='qday';
-      r.innerHTML = `<div class="l"><span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n} gasto${v.n===1?'':'s'} · ${pct}%</small></span><b>${fmt(v.s)}</b></div><div class="bar2"><i style="width:${pct}%;background:${(m&&m.color)||'#666'}"></i></div>`; ml.appendChild(r); });
+      r.innerHTML = `<div class="l"><span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${(m&&m.color)||'#666'};margin-right:8px"></span>${esc(name)} <small>· ${v.n} gasto${v.n===1?'':'s'} · ${pct}%</small></span><b>${fmt(v.s)}</b></div><div class="bar2"><i style="width:${pct}%;background:${(m&&m.color)||'#666'}"></i></div>`; r.classList.add('tap'); r.addEventListener('click', ()=>openMeth(v.id, d.a, d.b, curLabel())); ml.appendChild(r); });
     const dl = $('#qDays'); dl.innerHTML = '';
     d.days.forEach(x => { const r = document.createElement('div'); r.className='qday'; const fut = x.k > t; const sal = x.bud - x.spent; const pct = x.bud > 0 ? Math.min(100, Math.round(x.spent*100/x.bud)) : (x.spent ? 100 : 0);
       r.innerHTML = `<div class="l"><span>${dayLabel(x.k,{weekday:'short', day:'numeric'})} <small>· ${fut?`base ${fmt(x.base)}`:`presupuesto ${fmt(x.bud)}${x.bud!==x.base?` (base ${fmt(x.base)})`:''}`}</small></span><b>${x.spent?fmt(x.spent):'—'} ${fut?'':`<small class="${sal<0?'neg':'pos'}">${sal<0?'-':'+'}${fmt(Math.abs(sal))}</small>`}${x.ah?`<small style="color:#ff9f0a"> 🐷${fmt(x.ah)}</small>`:''}</b></div>${fut?'':`<div class="bar2"><i class="${sal<0?'over':''}" style="width:${pct}%"></i></div>`}`;
@@ -1049,6 +1103,15 @@
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
   setInterval(render, 60000); // por si pasa la medianoche con la app abierta
   document.querySelectorAll('.sclose').forEach(b => b.addEventListener('click', ()=>b.closest('.modal').classList.remove('open')));
+  const closeAll = () => document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', ()=>{
+    closeAll();
+    const g = b.dataset.go;
+    if(g==='top') window.scrollTo({top:0, behavior:'smooth'});
+    else if(g==='report') $('#openQ').click();
+    else if(g==='debts') $('#debtsSection').scrollIntoView({behavior:'smooth', block:'start'});
+    else if(g==='settings') $('#openSettings').click();
+  }));
   renderMethods(); render(); renderDebts();
 })();
 </script>
