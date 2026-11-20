@@ -96,11 +96,12 @@
   /* settings */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center;z-index:40}
   .modal.open{display:flex}
+  .modal.open.under{display:none}
   .sheet{position:relative;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:18px 16px max(24px,env(safe-area-inset-bottom));border-bottom:0}
-  .sclose{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;color:var(--text);font-size:20px;line-height:1;display:grid;place-items:center;padding:0;z-index:2}
+  .sclose{position:sticky;top:0;float:right;margin:-6px -4px 0 8px;width:36px;height:36px;border-radius:50%;color:var(--text);font-size:20px;line-height:1;display:grid;place-items:center;padding:0;z-index:2}
   .sclose:active{transform:scale(.92)}
   .sheet h2:first-of-type{padding-right:44px}
-  .qrep .tabs{margin-top:40px}
+  .qrep .tabs{margin-top:38px;clear:both}
   .tabs{display:flex;padding:4px;border-radius:999px;margin-bottom:12px}
   .tabs button{flex:1;background:transparent;border:0;color:var(--muted);padding:10px;border-radius:999px;font-size:14px;font-weight:700}
   .tabs button.on{background:var(--glass2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.15), inset 0 1px 0 var(--edge2)}
@@ -1104,6 +1105,12 @@
   setInterval(render, 60000); // por si pasa la medianoche con la app abierta
   document.querySelectorAll('.sclose').forEach(b => b.addEventListener('click', ()=>b.closest('.modal').classList.remove('open')));
   const closeAll = () => document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+  // pila de ventanas: al abrir una encima, la anterior se oculta y vuelve al cerrar la de arriba
+  const mstack = [];
+  new MutationObserver(muts => { muts.forEach(mu => { const el = mu.target; const was = (mu.oldValue||'').split(/\s+/).includes('open'), is = el.classList.contains('open');
+    if(is && !was){ document.querySelectorAll('.modal.open').forEach(o => { if(o!==el && !o.classList.contains('under')){ o.classList.add('under'); mstack.push(o); } }); }
+    else if(was && !is){ el.classList.remove('under'); const i = mstack.indexOf(el); if(i>=0) mstack.splice(i,1); if(!document.querySelector('.modal.open:not(.under)')){ const prev = mstack.pop(); if(prev) prev.classList.remove('under'); } }
+  }); }).observe(document.body, {attributes:true, attributeFilter:['class'], subtree:true, attributeOldValue:true});
   document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', ()=>{
     closeAll();
     const g = b.dataset.go;
