@@ -138,6 +138,7 @@
   .cards{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
   .cards span b{color:var(--text);font-variant-numeric:tabular-nums}
   .cards .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+  .cards .chip{padding:4px 10px;border-radius:999px;background:rgba(127,127,140,.12);cursor:pointer} .cards .chip:active{transform:scale(.96)}
   .cuadre label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 4px 6px}
   .amountbox.small{padding:10px 14px;margin-bottom:0}
   .amountbox.small input{font-size:28px}
@@ -310,6 +311,23 @@
     <p class="hint" id="cTomorrowHint"></p>
     <button class="btn glass primary" id="cSave">Guardar</button>
     <button class="btn glass" id="cClose">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal" id="cardModal">
+  <div class="sheet glass">
+    <button class="sclose glass" aria-label="Cerrar">×</button>
+    <h2 id="cpTitle">Tarjeta</h2>
+    <p class="meta" id="cpSince"></p>
+    <div class="kv glass">
+      <div><span>Por pagar</span><b id="cpSum">$0</b><small id="cpN"></small></div>
+      <div><span>Último pago</span><b id="cpLast">—</b><small id="cpLastSub"></small></div>
+    </div>
+    <p class="hint">Es lo que gastaste con esta tarjeta desde el presupuesto diario (sin lo del ahorro). Ese dinero ya salió del presupuesto: solo tienes que mandarlo al bolsillo y pagar.</p>
+    <button class="btn glass" id="cpCopy">Copiar valor</button>
+    <button class="btn glass" id="cpView">Ver gastos día por día</button>
+    <button class="btn glass primary" id="cpPaid">✓ Ya la pagué · reiniciar conteo</button>
+    <p class="hint">Al marcarla pagada, el conteo arranca en cero desde ahora y los pagos anteriores quedan guardados en el informe.</p>
   </div>
 </div>
 
@@ -772,6 +790,38 @@
     catch(_){ const ta = document.createElement('textarea'); ta.value = v; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} document.body.removeChild(ta); }
     toast('Copiado: ' + v);
   });
+  // ---- pagos de tarjeta: el conteo "por pagar" arranca desde el último pago (o desde la quincena si nunca has pagado)
+  const LS_CP = 'gastos.cardpays';
+  let cardPays = load(LS_CP, []);
+  const saveCardPays = () => { try{ localStorage.setItem(LS_CP, JSON.stringify(cardPays)); }catch(_){} };
+  const lastCardPay = mid => cardPays.filter(c => c.method===mid).sort((a,b)=>b.ts-a.ts)[0] || null;
+  function cardPending(m){
+    const lp = lastCardPay(m.id), t = today(), [qa] = qRange(qOf(t));
+    const es = entries.filter(e => e.method===m.id && !isAhorro(e) && (lp ? e.ts > lp.ts : dayKey(e.ts) >= qa) && dayKey(e.ts) <= t);
+    return { sum: es.reduce((s,e)=>s+e.amount,0), n: es.length, since: lp ? dayKey(lp.ts) : qa, lp };
+  }
+  const cardModal = $('#cardModal'); let cardOpen = null;
+  function renderCard(){
+    if(!cardOpen) return; const m = methods.find(x=>x.id===cardOpen); if(!m){ cardModal.classList.remove('open'); return; }
+    const p = cardPending(m);
+    $('#cpTitle').innerHTML = `<span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${m.color};margin-right:8px;vertical-align:2px"></span>${esc(m.name)}`;
+    $('#cpSince').textContent = (p.lp ? 'Desde el último pago, ' : 'Desde que empezó la quincena, ') + dayLabel(p.since, {weekday:'short', day:'numeric', month:'short'}) + ' · hasta hoy';
+    $('#cpSum').textContent = fmt(p.sum); $('#cpN').textContent = p.n + ' gasto' + (p.n===1?'':'s');
+    $('#cpLast').textContent = p.lp ? fmt(p.lp.amount) : '—'; $('#cpLastSub').textContent = p.lp ? dayLabel(dayKey(p.lp.ts), {day:'numeric', month:'short'}) : 'nunca marcada';
+    $('#cpPaid').disabled = !p.sum; $('#cpPaid').style.opacity = p.sum ? '' : '.5';
+  }
+  function openCard(id){ cardOpen = id; renderCard(); cardModal.classList.add('open'); }
+  $('#cpCopy').addEventListener('click', ()=>{ const m = methods.find(x=>x.id===cardOpen); const v = cardPending(m).sum; copyText(String(v)); toast('Copiado ' + fmt(v)); });
+  $('#cpView').addEventListener('click', ()=>{ const m = methods.find(x=>x.id===cardOpen); const p = cardPending(m); openMeth(m.id, p.since, today(), 'Desde el ' + dayLabel(p.since, {day:'numeric', month:'short'}) + ' hasta hoy'); });
+  $('#cpPaid').addEventListener('click', ()=>{
+    const m = methods.find(x=>x.id===cardOpen); const p = cardPending(m); if(!p.sum) return;
+    if(!confirm(`¿Marcar ${m.name} como pagada por ${fmt(p.sum)}? El conteo arranca en cero desde ahora.`)) return;
+    cardPays.push({id:'cp'+Date.now(), ts:Date.now(), method:m.id, amount:p.sum, n:p.n, since:p.since});
+    saveCardPays(); render(); cardModal.classList.remove('open');
+    toast(`${m.name} pagada · ${fmt(p.sum)}. Conteo en cero.`);
+  });
+  cardModal.addEventListener('click', ev=>{ if(ev.target===cardModal) cardModal.classList.remove('open'); });
+
   // ---- ingresos extra que se suman al presupuesto del día
   const LS_INC = 'gastos.incomes';
   let incomes = load(LS_INC, []);
@@ -910,10 +960,12 @@
       $('#budgetBar').style.width = pct + '%';
     }
     // tarjetas de crédito en lo que va de la quincena
-    const hc = $('#homeCards'); const [qa,qb0] = qRange(qOf(t)); const cards = creditMethods();
-    const cardSums = cards.map(m => [m, entries.filter(e => e.method===m.id && !isAhorro(e) && dayKey(e.ts)>=qa && dayKey(e.ts)<=qb0).reduce((s,e)=>s+e.amount,0)]).filter(x=>x[1]>0);
-    if(cardSums.length){ hc.style.display=''; hc.innerHTML = '<span>Tarjetas quincena:</span>' + cardSums.map(([m,v]) => `<span><i class="dot" style="background:${m.color}"></i>${esc(m.name)} <b>${fmt(v)}</b></span>`).join(''); }
+    const hc = $('#homeCards'); const cards = creditMethods();
+    const cardSums = cards.map(m => [m, cardPending(m).sum]).filter(x=>x[1]>0);
+    if(cardSums.length){ hc.style.display=''; hc.innerHTML = '<span>Tarjetas por pagar:</span>' + cardSums.map(([m,v]) => `<span class="chip" data-card="${m.id}"><i class="dot" style="background:${m.color}"></i>${esc(m.name)} <b>${fmt(v)}</b></span>`).join('');
+      hc.querySelectorAll('[data-card]').forEach(c => c.addEventListener('click', ()=>openCard(c.dataset.card))); }
     else hc.style.display='none';
+    if(cardModal.classList.contains('open')) renderCard();
     // recordatorio de quincena
     const uq = upcomingQ(); const qb = $('#qBanner');
     if(uq && !qConfirmed.includes(uq)){
@@ -1138,7 +1190,7 @@
     const cards = creditMethods();
     if(!cards.length) cl.innerHTML = '<div class="empty">Marca tus tarjetas de crédito con "TC" en ⚙︎</div>';
     cards.forEach(m => { const es = entries.filter(e => e.method===m.id && dayKey(e.ts)>=d.a && dayKey(e.ts)<=d.b); const sum = es.filter(e=>!isAhorro(e)).reduce((s,e)=>s+e.amount,0), ahm = es.filter(isAhorro).reduce((s,e)=>s+e.amount,0), n = es.filter(e=>!isAhorro(e)).length; const r = document.createElement('div'); r.className='day';
-      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ahm?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ahm)} del ahorro, no va aquí</small>`:''}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
+      r.innerHTML = `<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m.color};margin-right:8px"></span>${esc(m.name)}${n?` <small>· ${n}</small>`:''}${ahm?`<br><small style="color:#ff9f0a;padding-left:17px">🐷 ${fmt(ahm)} del ahorro, no va aquí</small>`:''}${cardPays.filter(c=>c.method===m.id && dayKey(c.ts)>=d.a && dayKey(c.ts)<=d.b).map(c=>`<br><small style="color:var(--ok);padding-left:17px">✓ pagada el ${dayLabel(dayKey(c.ts),{day:'numeric', month:'short'})} · ${fmt(c.amount)}</small>`).join('')}</span><b>${sum?fmt(sum):'—'}${sum?` <button class="mini glass" data-copy="${sum}">Copiar</button>`:''}</b>`;
       r.classList.add('tap'); r.addEventListener('click', ()=>openMeth(m.id, d.a, d.b, curLabel()));
       cl.appendChild(r); });
     cl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', ev=>{ ev.stopPropagation(); copyText(b.dataset.copy); toast('Copiado ' + fmt(Number(b.dataset.copy))); }));
@@ -1238,14 +1290,14 @@
   });
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg, savings: sav, incomes}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({methods, entries, budgets, base, qConfirmed, debts, pay: payCfg, savings: sav, incomes, cardPays}, null, 2)], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gastos-'+today()+'.json'; a.click();
   });
   $('#importBtn').addEventListener('click', ()=>$('#importFile').click());
   $('#importFile').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.pay.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(d.savings && Array.isArray(d.savings.accounts)){ sav = d.savings; if(!Array.isArray(sav.moves)) sav.moves = []; saveSav(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } if(Array.isArray(d.incomes)){ incomes = d.incomes; saveIncomes(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
+    rd.onload = ()=>{ try{ const d = JSON.parse(rd.result); if(Array.isArray(d.entries)) entries = d.entries; if(Array.isArray(d.methods)) methods = d.methods; if(d.budgets && typeof d.budgets==='object') budgets = d.budgets; if(d.base && d.base.wd) base = d.base; if(Array.isArray(d.qConfirmed)) qConfirmed = d.qConfirmed; if(d.pay && d.pay.d1){ payCfg = Object.assign({d1:15,d2:30,starts:{}}, d.pay); savePay(); } if(d.savings && Array.isArray(d.savings.accounts)){ sav = d.savings; if(!Array.isArray(sav.moves)) sav.moves = []; saveSav(); } if(Array.isArray(d.debts)){ debts = d.debts; saveDebts(); } if(Array.isArray(d.incomes)){ incomes = d.incomes; saveIncomes(); } if(Array.isArray(d.cardPays)){ cardPays = d.cardPays; saveCardPays(); } saveBudgets(); save(); renderMethods(); render(); renderDebts(); toast('Copia importada'); }catch(_){ toast('Archivo inválido'); } };
     rd.readAsText(f);
   });
   $('#wipeBtn').addEventListener('click', ()=>{
