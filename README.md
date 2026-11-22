@@ -32,6 +32,8 @@ El botón **Cuadre** cierra el día: muestra gastado, saldo y lo que salió del 
 
 Dentro del cuadre, **➕ Añadir al presupuesto diario** sirve cuando entra plata extra (una devolución, una venta, un regalo): pones cuánto y de dónde, y se suma al presupuesto de hoy sin tener que calcularlo a mano. No cuenta como gasto ni toca el ahorro; si sobra, pasa a mañana como siempre. En la home el presupuesto muestra "(+ $50.000 que entró)".
 
+También en el cuadre está **¿Cuadra la plata?**: lo que deberías tener en tu poder del presupuesto normal = saldo de hoy + la base de los días que faltan de la quincena + lo gastado con tarjeta que aún no has pagado (sigue en tu cuenta) − lo que prestaste del presupuesto. Compáralo con lo que tienes en Bancolombia + Nequi + efectivo, sin el ahorro.
+
 En "Últimos 7 días" cada día muestra gastado, presupuesto y saldo (verde si sobró, rojo si faltó). Con "ver la quincena completa" la lista se despliega ahí mismo desde el día de pago.
 
 ## Del ahorro
@@ -57,6 +59,8 @@ Sección **Ahorro** en la pantalla principal (y en la barra inferior): cuánto t
 ## Deudas y préstamos
 
 Sección **Deudas** en la pantalla principal, aparte del presupuesto diario: quién, cuánto, si me deben o debo, y una nota. Cada deuda tiene la pregunta "¿Te lo deben del ahorro?" o "¿Lo vas a sacar del ahorro?": si la marcas, cuenta en los totales de Ahorro y, al marcarla pagada, se abre la ventana de ahorro ya llena para elegir en qué cuenta entra o de cuál sale. Arriba sale el total "me deben $X · debo $Y". El check marca pagada; "ver pagadas" muestra el historial. Tocar una la edita.
+
+Cuando prestas, además de "del ahorro" puedes marcar **💵 ¿Lo prestaste del presupuesto diario?**: no cuenta como gasto (no baja el presupuesto del día), solo se resta en "¿Cuadra la plata?" hasta que te paguen. Las dos opciones son excluyentes.
 
 ## Barra inferior
 

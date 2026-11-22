@@ -306,6 +306,12 @@
       <div><span>Del ahorro</span><b id="cAhorro">$0</b></div>
     </div>
     <button class="btn glass" id="cCopySpent">Copiar gastado para el Excel</button>
+    <label>¿Cuadra la plata? · lo que deberías tener del presupuesto</label>
+    <div class="kv glass" style="grid-template-columns:1fr">
+      <div><span>Deberías tener</span><b id="chTotal" style="font-size:24px">$0</b><small id="chSub"></small></div>
+    </div>
+    <div class="list glass" id="chList"></div>
+    <p class="hint">Suma lo que queda del presupuesto en esta quincena (hoy + los días que faltan) y lo gastado con tarjeta que aún no pagas (esa plata sigue en tu cuenta), y resta lo que prestaste del presupuesto. Compara con lo que tienes en Bancolombia + Nequi + efectivo (sin el ahorro).</p>
     <label id="cTomorrowLabel">Presupuesto de mañana</label>
     <div class="amountbox glass small"><span class="cur">$</span><input id="cBudgetTomorrow" type="text" inputmode="numeric" placeholder="0"></div>
     <p class="hint" id="cTomorrowHint"></p>
@@ -449,6 +455,7 @@
     <label>Nota</label>
     <input class="note glass" id="dbNote" type="text" placeholder="Por qué, cuándo paga…" autocomplete="off">
     <label class="toggle glass" style="margin-top:12px"><span id="dbAhLbl">🐷 ¿Te lo deben del ahorro? (cuando te paguen va al ahorro)</span><input type="checkbox" id="dbAhorro"></label>
+    <label class="toggle glass" id="dbPresuRow"><span>💵 ¿Lo prestaste del presupuesto diario? (no cuenta como gasto, solo en la plata que debes tener)</span><input type="checkbox" id="dbPresu"></label>
     <button class="btn glass primary" id="dbSave">Guardar</button>
     <button class="btn glass" id="dbPaid" style="display:none">Marcar como pagada</button>
     <button class="btn glass danger" id="dbDelete" style="display:none">Borrar</button>
@@ -761,7 +768,7 @@
     $('#cTodayAuto').textContent = isManual(t) ? '(fijado a mano)' : '(automático)';
     setMoney($('#cBudgetToday'), budgetOf(t));
     $('#cAhorro').textContent = fmt(ahorroOn(t));
-    refreshCuadre(true); refreshIncomes();
+    refreshCuadre(true); refreshIncomes(); renderCash();
     cmodal.classList.add('open');
   }
   function refreshCuadre(fillTomorrow){
@@ -821,6 +828,31 @@
     toast(`${m.name} pagada · ${fmt(p.sum)}. Conteo en cero.`);
   });
   cardModal.addEventListener('click', ev=>{ if(ev.target===cardModal) cardModal.classList.remove('open'); });
+  $('#dbAhorro').addEventListener('change', ()=>{ if($('#dbAhorro').checked) $('#dbPresu').checked = false; });
+  $('#dbPresu').addEventListener('change', ()=>{ if($('#dbPresu').checked) $('#dbAhorro').checked = false; });
+
+  // ---- ¿cuadra la plata? lo que deberías tener en tu poder del presupuesto
+  const debtsPresu = () => (typeof debts!=='undefined' ? debts : load(LS_D, [])).filter(d => !d.paid && d.presu && d.type==='me');
+  function cashCheck(){
+    const t = today(), [qa, qb] = qRange(qOf(t));
+    const leftToday = budgetOf(t) - spentOn(t);
+    let fut = 0, nFut = 0; for(let k = addDays(t,1); k <= qb; k = addDays(k,1)){ fut += isManual(k) ? budgetOf(k) : baseOf(k); nFut++; }
+    const cards = creditMethods().map(m => [m, cardPending(m).sum]).filter(x => x[1] > 0);
+    const cardSum = cards.reduce((s,x)=>s+x[1],0);
+    const loans = debtsPresu(), loanSum = loans.reduce((s,d)=>s+d.amount,0);
+    return { leftToday, fut, nFut, cards, cardSum, loans, loanSum, total: leftToday + fut + cardSum - loanSum, qb };
+  }
+  function renderCash(){
+    const c = cashCheck(), t = today();
+    $('#chTotal').textContent = fmt(c.total); $('#chTotal').style.color = c.total < 0 ? 'var(--danger)' : '';
+    $('#chSub').textContent = 'hasta el ' + dayLabel(c.qb, {day:'numeric', month:'short'}) + ' (fin de quincena)';
+    const row = (lbl, v, sub) => `<div class="day"><span>${lbl}${sub?`<br><small>${sub}</small>`:''}</span><b class="${v<0?'neg':''}">${v<0?'− ':'+ '}${fmt(Math.abs(v))}</b></div>`;
+    let h = row('Saldo de hoy', c.leftToday, 'presupuesto ' + fmt(budgetOf(t)) + ' − gastado ' + fmt(spentOn(t)));
+    h += row('Días que faltan', c.fut, c.nFut ? c.nFut + ' día' + (c.nFut===1?'':'s') + ' · base de cada uno' : 'hoy es el último día');
+    c.cards.forEach(([m,v]) => h += row(`<i class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};margin-right:6px"></i>${esc(m.name)} sin pagar`, v, 'ya salió del presupuesto, sigue en tu cuenta'));
+    c.loans.forEach(d => h += row(`Prestado a ${esc(d.who)}`, -d.amount, 'del presupuesto · ' + dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})));
+    $('#chList').innerHTML = h;
+  }
 
   // ---- ingresos extra que se suman al presupuesto del día
   const LS_INC = 'gastos.incomes';
@@ -966,6 +998,7 @@
       hc.querySelectorAll('[data-card]').forEach(c => c.addEventListener('click', ()=>openCard(c.dataset.card))); }
     else hc.style.display='none';
     if(cardModal.classList.contains('open')) renderCard();
+    if(cmodal.classList.contains('open')) renderCash();
     // recordatorio de quincena
     const uq = upcomingQ(); const qb = $('#qBanner');
     if(uq && !qConfirmed.includes(uq)){
@@ -1100,7 +1133,7 @@
     list.slice().sort((a,b)=>(a.paid?1:0)-(b.paid?1:0) || b.ts-a.ts).forEach(d => {
       const r = document.createElement('div'); r.className = 'row' + (d.paid?' paid':'');
       r.innerHTML = `<input type="checkbox" class="chk" ${d.paid?'checked':''} title="Pagada">
-        <div class="info"><b>${esc(d.who)}${d.ahorro?'<span class="tag">🐷 ahorro</span>':''}</b><small>${d.type==='me'?'me debe':'le debo'} · ${dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})}${d.note?' · '+esc(d.note):''}${d.paid?' · pagada '+dayLabel(dayKey(d.paidTs||d.ts),{day:'numeric', month:'short'}):''}</small></div>
+        <div class="info"><b>${esc(d.who)}${d.ahorro?'<span class="tag">🐷 ahorro</span>':d.presu?'<span class="tag">💵 presupuesto</span>':''}</b><small>${d.type==='me'?'me debe':'le debo'} · ${dayLabel(dayKey(d.ts),{day:'numeric', month:'short'})}${d.note?' · '+esc(d.note):''}${d.paid?' · pagada '+dayLabel(dayKey(d.paidTs||d.ts),{day:'numeric', month:'short'}):''}</small></div>
         <span class="amt ${d.type==='me'?'pos':'neg'}">${d.type==='me'?'+':'-'}${fmt(d.amount)}</span>`;
       r.querySelector('.chk').addEventListener('click', ev=>{ ev.stopPropagation(); d.paid = ev.target.checked; d.paidTs = d.paid ? Date.now() : undefined; saveDebts(); renderDebts(); if(d.paid && d.ahorro) savForDebt(d); else toast(d.paid ? 'Pagada · ' + d.who : 'Pendiente de nuevo'); });
       r.addEventListener('click', ()=>openDebt(d));
@@ -1109,13 +1142,13 @@
     $('#toggleDebtPaid').textContent = showPaid ? 'ocultar pagadas' : 'ver pagadas';
     $('#toggleDebtPaid').style.display = debts.some(d=>d.paid) ? '' : 'none';
   }
-  function setDbType(t){ dbType = t; $('#dbMeDeben').classList.toggle('on', t==='me'); $('#dbDebo').classList.toggle('on', t==='yo'); $('#dbAhLbl').textContent = t==='me' ? '🐷 ¿Te lo deben del ahorro? (cuando te paguen va al ahorro)' : '🐷 ¿Lo vas a sacar del ahorro? (cuando pagues sale del ahorro)'; }
+  function setDbType(t){ dbType = t; $('#dbMeDeben').classList.toggle('on', t==='me'); $('#dbDebo').classList.toggle('on', t==='yo'); $('#dbPresuRow').style.display = t==='me' ? '' : 'none'; if(t!=='me') $('#dbPresu').checked = false; $('#dbAhLbl').textContent = t==='me' ? '🐷 ¿Te lo deben del ahorro? (cuando te paguen va al ahorro)' : '🐷 ¿Lo vas a sacar del ahorro? (cuando pagues sale del ahorro)'; }
   $('#dbMeDeben').addEventListener('click', ()=>setDbType('me')); $('#dbDebo').addEventListener('click', ()=>setDbType('yo'));
   function openDebt(d){
     debtId = d ? d.id : null;
     $('#dbTitle').textContent = d ? (d.type==='me' ? d.who + ' me debe' : 'Le debo a ' + d.who) : 'Nueva deuda o préstamo';
     setDbType(d ? d.type : 'me');
-    $('#dbWho').value = d ? d.who : ''; setMoney($('#dbAmount'), d ? d.amount : 0); $('#dbNote').value = d ? (d.note||'') : ''; $('#dbAhorro').checked = !!(d && d.ahorro);
+    $('#dbWho').value = d ? d.who : ''; setMoney($('#dbAmount'), d ? d.amount : 0); $('#dbNote').value = d ? (d.note||'') : ''; $('#dbAhorro').checked = !!(d && d.ahorro); $('#dbPresu').checked = !!(d && d.presu);
     $('#dbPaid').style.display = d && !d.paid ? '' : 'none'; $('#dbDelete').style.display = d ? '' : 'none';
     dbmodal.classList.add('open'); if(!d) setTimeout(()=>$('#dbWho').focus(), 50);
   }
@@ -1125,9 +1158,9 @@
     const who = $('#dbWho').value.trim(), amount = Number(digits($('#dbAmount').value)) || 0;
     if(!who || !amount){ toast('Falta el nombre o el valor'); return; }
     const d = debts.find(x=>x.id===debtId);
-    const ah = $('#dbAhorro').checked;
-    if(d){ Object.assign(d, {who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah}); }
-    else debts.unshift({id:'d'+Date.now(), ts:Date.now(), who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah, paid:false});
+    const ah = $('#dbAhorro').checked, pr = dbType==='me' && $('#dbPresu').checked && !ah;
+    if(d){ Object.assign(d, {who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah, presu:pr}); }
+    else debts.unshift({id:'d'+Date.now(), ts:Date.now(), who, amount, note:$('#dbNote').value.trim(), type:dbType, ahorro:ah, presu:pr, paid:false});
     saveDebts(); renderDebts(); dbmodal.classList.remove('open');
   });
   $('#dbPaid').addEventListener('click', ()=>{ const d = debts.find(x=>x.id===debtId); dbmodal.classList.remove('open'); if(d){ d.paid = true; d.paidTs = Date.now(); saveDebts(); renderDebts(); if(d.ahorro) savForDebt(d); } });
